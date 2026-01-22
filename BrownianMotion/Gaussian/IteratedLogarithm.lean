@@ -29,6 +29,12 @@ lemma IsBrownian.LIL_upper [IsProbabilityMeasure P] [hX : IsBrownian X P] : ∀�
   let f := fun (t : ℝ≥0) ↦ (2*t*(loglog t)).sqrt
   let M := fun t ω ↦ (⨆ s ≤ t, (X s ω : EReal))
 
+  have hloglog : Filter.Tendsto loglog atTop atTop := by
+    unfold loglog
+    rw [← Function.comp_def]
+    repeat apply Filter.Tendsto.comp Real.tendsto_log_atTop
+    simp [Filter.Tendsto]
+
   -- rewrite limsup inequality in terms of quantifiers
   conv => enter [1, ω]; rw [limsup_le_iff']
 
@@ -45,8 +51,10 @@ lemma IsBrownian.LIL_upper [IsProbabilityMeasure P] [hX : IsBrownian X P] : ∀�
     have hy0 : (0 ≤ y) := by bound
     lift y to ℝ≥0 using hy0
     rcases Dense.exists_between dQ (by exact_mod_cast hy1) with ⟨r,hrQ,⟨hr1,hry⟩⟩
-    filter_upwards [hω ⟨r,hrQ⟩] with t ht
-    rw [EReal.div_le_iff_le_mul (by sorry) (by apply EReal.coe_ne_top), mul_comm]
+    filter_upwards [hω ⟨r,hrQ⟩, eventually_gt_atTop 0, hloglog.eventually_ge_atTop 1]
+      with t ht ht0 hll1
+    unfold loglog at hll1
+    rw [EReal.div_le_iff_le_mul (by positivity) (by apply EReal.coe_ne_top), mul_comm] -- positivity
     norm_cast
     apply le_trans (ht (by exact_mod_cast hr1)) (mul_le_mul _ _ (by positivity) _)
     all_goals bound
@@ -58,8 +66,9 @@ lemma IsBrownian.LIL_upper [IsProbabilityMeasure P] [hX : IsBrownian X P] : ∀�
     filter_upwards [h] with ω hω
     rcases (bddAbove_def.1 hω.bddAbove) with ⟨N,hN⟩
     replace hN := fun x ↦ (hN x).mt
-    simp at hN
-    filter_upwards [eventually_ge_atTop 1, eventually_ge_atTop (c^(N+1))] with t ht1 ht
+    simp only [not_le, Set.mem_setOf_eq, not_lt] at hN
+    filter_upwards [eventually_ge_atTop 1, eventually_ge_atTop (c^(N+1)), eventually_gt_atTop c]
+      with t ht1 ht htc
     rcases exists_nat_pow_near (x := t) ht1 hc with ⟨n,hn1,hn2⟩
     have h := calc
       X t ω ≤ M (c^(n+1)) ω := by
@@ -71,17 +80,26 @@ lemma IsBrownian.LIL_upper [IsProbabilityMeasure P] [hX : IsBrownian X P] : ∀�
         apply hN
         suffices (N : ℝ) < (n : ℝ) by exact_mod_cast this
         apply lt_of_add_lt_add_right (a := 1)
-        rw [←Real.rpow_lt_rpow_left_iff hr]; push_cast
+        rw [←Real.rpow_lt_rpow_left_iff hc]; push_cast
         exact lt_of_le_of_lt (by exact_mod_cast ht) (by exact_mod_cast hn2)
       _ ≤ c * (f t)       := by
-        apply mul_le_mul_right
-        unfold f; norm_cast
-        apply mul_le_mul _ _ (by bound) (by bound)
-        · rw [NNReal.sqrt_le_sqrt]; bound
-        · apply Real.toNNReal_monotone
-          apply loglog_mono
-          bound
-    sorry
+        apply mul_le_mul (by rfl) _ (by positivity) (by positivity)
+        unfold f
+        apply EReal.coe_le_coe
+
+        apply Real.sqrt_le_sqrt
+        apply mul_le_mul (by bound) _ _ (by positivity)
+        · apply Real.log_le_log
+          · push_cast
+            apply Real.log_pos
+            sorry
+          · apply Real.log_le_log (by positivity)
+            bound
+        · apply Real.log_nonneg
+          sorry
+
+    rw [EReal.coe_nnreal_eq_coe_real] at h
+    exact_mod_cast h
 
   -- apply Borel-Cantelli
   let A := fun n : ℕ ↦ {ω | c * f (c ^ n) < M (c^(n+1)) ω}
@@ -96,16 +114,18 @@ lemma IsBrownian.LIL_upper [IsProbabilityMeasure P] [hX : IsBrownian X P] : ∀�
 
   -- do the bound
   apply Asymptotics.IsBigO.of_bound (C * ((Real.log c) ^ (c : ℝ))⁻¹)
-  filter_upwards [eventually_ge_atTop 1] with n hn
 
+  have hloglog' := Filter.Tendsto.comp hloglog (tendsto_pow_atTop_atTop_of_one_lt hc)
+
+  filter_upwards [eventually_ge_atTop 1, hloglog'.eventually_ge_atTop 1] with n hn hll1
+  rw [Function.comp_def] at hll1
   -- collect n-based facts
   specialize h' (c ^ (n + 1)) (c * f (c ^ n)) (by positivity)
   have c2t_eq : (c * f (c^n))^2 / ((c ^ (n+1)) : ℝ≥0) = 2 * c * (loglog (c^n)) := by
     push_cast
     apply div_eq_of_eq_mul (by aesop)
-    push_cast
     simp_rw [mul_pow, pow_add]
-    rw [Real.sq_sqrt (by sorry)]
+    rw [Real.sq_sqrt (by positivity)]
     push_cast; field_simp
 
   -- rewrite and estimate the probability
@@ -122,8 +142,8 @@ lemma IsBrownian.LIL_upper [IsProbabilityMeasure P] [hX : IsBrownian X P] : ∀�
   apply mul_le_mul _ _ (by positivity) (by positivity)
   · apply mul_le_of_le_one_right (by positivity)
     rw [Real.sqrt_le_one, inv_le_one₀ ?_]
-    · sorry
-    · sorry
+    · bound
+    · positivity
   · field_simp
     rw [Real.exp_neg]
     conv in Real.exp _ => rw [mul_comm]
