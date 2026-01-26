@@ -18,7 +18,7 @@ open scoped ENNReal NNReal Topology BoundedContinuousFunction
 variable {T Ω E : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
 
 lemma IsBrownian.upper_tail {X} (hX : IsBrownian X P) : ∃ C : ℝ≥0, ∀ (t : ℝ≥0) (c : ℝ) (hc : 0 ≤ c),
-    P.real {ω | (⨆ s ≤ t, (X s ω : EReal)) ≥ c}
+    P.real {ω | ⨆ s ≤ t, (X s ω).toEReal ≥ c}
       ≤ C * Real.sqrt (c^2 / (t : ℝ))⁻¹ * Real.exp (-1/2 * (c^2 / (t : ℝ))) := by
   sorry
 
@@ -35,13 +35,13 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
     simp [Filter.Tendsto]
   -- Rewrite limsup inequality in terms of quantifiers which do not depend on `ω`
   simp_rw [ae_le_const_iff_forall_gt_measure_zero, ← not_lt, ← ae_iff]
-  suffices h : ∀ (c : ℝ≥0), (1 : ℝ) < c → ∀ᵐ (ω : Ω) ∂P, ∀ᶠ (t : ℝ≥0) in atTop,
+  suffices h : ∀ (c : ℝ≥0), 1 < (c : ℝ) → ∀ᵐ (ω : Ω) ∂P, ∀ᶠ (t : ℝ≥0) in atTop,
       X t ω ≤ c * f t by
     intro _ hc
-    obtain ⟨b,hb1,hb2⟩ := EReal.lt_iff_exists_real_btwn.1 hc
-    lift b to ℝ≥0 using by positivity [by exact_mod_cast hb1]
-    filter_upwards [h b <| by exact_mod_cast hb1] with _ hω
-    apply lt_of_le_of_lt _ hb2
+    rcases EReal.lt_iff_exists_real_btwn.mp hc with ⟨b,hb⟩
+    lift b to ℝ≥0 using by positivity [by exact_mod_cast hb.1]
+    filter_upwards [h b <| by exact_mod_cast hb.1] with _ hω
+    apply lt_of_le_of_lt _ hb.2
     apply limsup_le_of_le (hf := by isBoundedDefault)
     filter_upwards [hω] with t ht
     exact EReal.coe_le_coe <| div_le_of_le_mul₀ (by positivity) (by positivity) ht
