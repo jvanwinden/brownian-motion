@@ -24,8 +24,8 @@ lemma IsBrownian.upper_tail {X} (hX : IsBrownian X P) : ∃ C : ℝ≥0, ∀ (t 
 
 variable (X : ℝ≥0 → Ω → ℝ) [hX : ProbabilityTheory.IsBrownian X P]
 
-lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦ (X t ω) / (2 * t * (t : ℝ).log.log).sqrt :
-    ℝ≥0 → EReal) atTop ≤ 1 := by
+lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
+    ((X t ω) / (2 * t * (t : ℝ).log.log).sqrt).toEReal) atTop ≤ 1 := by
   -- Introduce notation
   let M := fun t ω ↦ (⨆ s ≤ t, (X s ω : EReal))
   let f := fun (t : ℝ≥0) ↦ (2 * t * (t : ℝ).log.log).sqrt
@@ -34,25 +34,18 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦ (X t ω) / (2 * t
     repeat apply Filter.Tendsto.comp Real.tendsto_log_atTop
     simp [Filter.Tendsto]
   -- Rewrite limsup inequality in terms of quantifiers which do not depend on `ω`
-  conv in (_ ≤ _) => rw [limsup_le_iff']
-  obtain ⟨Q,cQ,dQ⟩ := TopologicalSpace.exists_countable_dense ℝ≥0
-  suffices h : ∀ (c : Q), (1 : ℝ) < c → ∀ᵐ (ω : Ω) ∂P, ∀ᶠ (t : ℝ≥0) in atTop,
+  simp_rw [ae_le_const_iff_forall_gt_measure_zero, ← not_lt, ← ae_iff]
+  suffices h : ∀ (c : ℝ≥0), (1 : ℝ) < c → ∀ᵐ (ω : Ω) ∂P, ∀ᶠ (t : ℝ≥0) in atTop,
       X t ω ≤ c * f t by
-    haveI : (Countable Q) := cQ
-    simp_rw [← Filter.eventually_imp_distrib_left, ← ae_all_iff] at h
-    filter_upwards [h] with ω hω
-    refine EReal.forall.2 ⟨(by simp), (by simp),?_⟩
-    intro c hc1; norm_cast at hc1
-    lift c to ℝ≥0 using by positivity
-    rcases dQ.exists_between (by exact_mod_cast hc1) with ⟨r,hrQ,⟨hr1,hry⟩⟩
-    filter_upwards [hω ⟨r,hrQ⟩, eventually_gt_atTop 0, loglog_atTop.eventually_ge_atTop 1]
-      with _ ht ht0 hll1
-    rw [EReal.div_le_iff_le_mul (by positivity) (by apply EReal.coe_ne_top), mul_comm]
-    norm_cast
-    apply le_trans (ht (by exact_mod_cast hr1)) <| mul_le_mul _ _ (by positivity) (by positivity)
-    all_goals bound
-  rw [Subtype.forall]
-  intro c _ hc
+    intro _ hc
+    obtain ⟨b,hb1,hb2⟩ := EReal.lt_iff_exists_real_btwn.1 hc
+    lift b to ℝ≥0 using by positivity [by exact_mod_cast hb1]
+    filter_upwards [h b <| by exact_mod_cast hb1] with _ hω
+    apply lt_of_le_of_lt _ hb2
+    apply limsup_le_of_le (hf := by isBoundedDefault)
+    filter_upwards [hω] with t ht
+    exact EReal.coe_le_coe <| div_le_of_le_mul₀ (by positivity) (by positivity) ht
+  intro c hc
   -- Prepare for application of Borel-Cantellli
   suffices h : ∀ᵐ ω ∂P, {n : ℕ | c * f (c ^ n) < M (c^(n+1)) ω}.Finite by
     filter_upwards [h] with ω hω
