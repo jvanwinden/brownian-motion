@@ -138,8 +138,7 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
       filter_upwards [eventually_gt_atTop 1, Eventually.of_forall h,
         h'.eventually <| lt_mem_nhds <| hc1] with r hr0 hr1 hr2
       filter_upwards [hr1 hr0] with ω hω
-      apply lt_of_lt_of_le _ hω
-      exact_mod_cast hr2
+      exact lt_of_lt_of_le (by exact_mod_cast hr2) hω
   intro c hc1
   lift c to ℝ≥0 using by positivity
   have hc0 : (0 < c) := by positivity [by exact_mod_cast hc1]
@@ -149,22 +148,18 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
         ≤ (1 / (c : ℝ).sqrt).toEReal := by
       sorry -- Consequence of LIL_upper by symmetry
     filter_upwards [h, h'] with ω hω hω'
-    apply EReal.sub_le_of_le_add
-    apply le_trans hω _
-    simp_rw [← div_sub_div_same]
-    simp_rw [sub_eq_add_neg, EReal.coe_add, ← neg_div]
+    apply EReal.sub_le_of_le_add <| le_trans hω _
+    simp_rw [← div_sub_div_same, sub_eq_add_neg, EReal.coe_add, ← neg_div]
     · apply le_trans (EReal.limsup_add_le (by aesop) _) _
       · sorry -- not Bot
-      · apply add_le_add
-        · apply le_of_eq
-          have h : Filter.map (fun x ↦ c * x : ℝ≥0 → ℝ≥0) atTop = atTop := by
-            apply Filter.map_atTop_eq_of_gc_preorder (mul_right_mono) 0 _
-            exact fun d _ ↦ ⟨c⁻¹ * d, ⟨mul_inv_cancel_left₀ (by aesop) d,
-              fun _ ↦ (le_inv_mul_iff₀ hc0).symm⟩⟩
-          nth_rw 2 [← h]
-          rw [← Filter.limsup_comp]
-          rfl
-        · simpa [← EReal.coe_neg, ← neg_div] using hω'
+      · apply add_le_add (_) <| by simpa [← EReal.coe_neg, ← neg_div] using hω'
+        apply le_of_eq
+        have h : Filter.map (fun x ↦ c * x : ℝ≥0 → ℝ≥0) atTop = atTop := by
+          apply Filter.map_atTop_eq_of_gc_preorder (mul_right_mono) 0 _
+          exact fun d _ ↦ ⟨c⁻¹ * d, ⟨mul_inv_cancel_left₀ (by aesop) d,
+            fun _ ↦ (le_inv_mul_iff₀ hc0).symm⟩⟩
+        nth_rw 2 [← h]
+        simpa [Filter.limsup_comp (α := EReal)] using by rfl
   let A := fun n ↦ {ω | (1 - 1 / (c : ℝ)).sqrt ≤
     (X (c ^ (n + 1)) ω - X (c ^ n) ω) / f (c ^ (n + 1))}
   have hA : ((n : ℕ) → MeasurableSet (A n)) := sorry -- meas
@@ -181,5 +176,5 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
     simpa [EReal.coe_le_coe_iff, mul_comm, pow_add, pow_one] using hn.out
   apply ProbabilityTheory.measure_limsup_eq_one hA
   all_goals unfold A
-  · sorry --independence
+  · sorry -- independence: very awkward since hasIndepIncrements only supports finite index set
   · sorry --non-summability
