@@ -10,6 +10,7 @@ import Mathlib.Probability.ConditionalExpectation
 import Mathlib.Analysis.SpecialFunctions.Log.PosLog
 import Mathlib.Analysis.PSeries
 import Mathlib.Order.Filter.Basic
+import Mathlib.Probability.BorelCantelli
 
 open MeasureTheory NNReal WithLp Finset MeasurableSpace Filtration Filter
 open ProbabilityTheory
@@ -121,7 +122,7 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
     ℝ≥0 → EReal) atTop := by
   let f := fun (t : ℝ≥0) ↦ (2 * t * (t : ℝ).log.log).sqrt
   -- Rewrite the inequality into a nice form with the quantifier outside
-  suffices h : ∀ (c : ℝ), 0 < c → ∀ᵐ ω ∂P, (1 - 1 / c).sqrt - (1 / c.sqrt : ℝ) ≤
+  suffices h : ∀ (c : ℝ), 1 < c → ∀ᵐ ω ∂P, (1 - 1 / c).sqrt - (1 / c.sqrt : ℝ) ≤
       limsup (fun t ↦ (X t ω) / (f t) : ℝ≥0 → EReal) atTop by
     simp_rw [ae_const_le_iff_forall_lt_measure_zero, ← not_lt, ← ae_iff]
     have h' : Filter.Tendsto (fun (r : ℝ) ↦ (1 - 1 / r).sqrt - (1 / r.sqrt)) atTop (nhds 1) := by
@@ -129,26 +130,56 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
     intro c hc1
     wlog! hc0 : (0 < c) generalizing c with h
     · replace h := fun (c : ℝ) ↦ h c
-      specialize h (1/2) (by sorry) (by norm_num)
-      exact h.mono fun _ hω ↦ lt_trans (lt_of_le_of_lt hc0 (by bound)) hω
+      specialize h (1/2) (?_) (by norm_num)
+      · apply EReal.coe_lt_coe; bound
+      exact h.mono fun _ hω ↦ lt_trans (lt_of_le_of_lt hc0 (by norm_num)) hω
     · lift c to ℝ using by aesop;; norm_cast at hc0 hc1
       apply (Filter.eventually_const (f := atTop (α := ℝ))).1
-      filter_upwards [eventually_gt_atTop 0, Eventually.of_forall h,
+      filter_upwards [eventually_gt_atTop 1, Eventually.of_forall h,
         h'.eventually <| lt_mem_nhds <| hc1] with r hr0 hr1 hr2
       filter_upwards [hr1 hr0] with ω hω
       apply lt_of_lt_of_le _ hω
       exact_mod_cast hr2
-  intro c hc0
+  intro c hc1
   lift c to ℝ≥0 using by positivity
+  have hc0 : (0 < c) := by positivity [by exact_mod_cast hc1]
   suffices h : ∀ᵐ ω ∂P, (1 - 1 / (c : ℝ)).sqrt ≤
-      limsup (fun t ↦ (X (c * t) ω - X t ω) / f (c * t) : ℝ≥0 → EReal) atTop by
-    have h' : ∀ᵐ ω ∂P, limsup (fun t ↦ (X t ω) / f (c * t) : ℝ≥0 → EReal) atTop
-        ≤ (1 / (c : ℝ).sqrt : ℝ) := by
-      sorry -- Consequence of LIL_upper
+      limsup (fun t ↦ ((X (c * t) ω - X t ω) / f (c * t)).toEReal) atTop by
+    have h' : ∀ᵐ ω ∂P, limsup (fun t ↦ ((-X t ω) / f (c * t)).toEReal) atTop
+        ≤ (1 / (c : ℝ).sqrt).toEReal := by
+      sorry -- Consequence of LIL_upper by symmetry
     filter_upwards [h, h'] with ω hω hω'
-    sorry -- Combine inequalities in standard way
-  -- use a ≤ f (c ^ n) i.o. → a ≤ limsup f t
-  -- apply second Borel-Cantelli lemma (using independence)
-  -- use Gaussianity to get lower bound
-  -- show lower bound is non-summable
-  sorry
+    apply EReal.sub_le_of_le_add
+    apply le_trans hω _
+    simp_rw [← div_sub_div_same]
+    simp_rw [sub_eq_add_neg, EReal.coe_add, ← neg_div]
+    · apply le_trans (EReal.limsup_add_le (by aesop) _) _
+      · sorry -- not Bot
+      · apply add_le_add
+        · apply le_of_eq
+          have h : Filter.map (fun x ↦ c * x : ℝ≥0 → ℝ≥0) atTop = atTop := by
+            apply Filter.map_atTop_eq_of_gc_preorder (mul_right_mono) 0 _
+            exact fun d _ ↦ ⟨c⁻¹ * d, ⟨mul_inv_cancel_left₀ (by aesop) d,
+              fun _ ↦ (le_inv_mul_iff₀ hc0).symm⟩⟩
+          nth_rw 2 [← h]
+          rw [← Filter.limsup_comp]
+          rfl
+        · simpa [← EReal.coe_neg, ← neg_div] using hω'
+  let A := fun n ↦ {ω | (1 - 1 / (c : ℝ)).sqrt ≤
+    (X (c ^ (n + 1)) ω - X (c ^ n) ω) / f (c ^ (n + 1))}
+  have hA : ((n : ℕ) → MeasurableSet (A n)) := sorry -- meas
+
+  suffices h : P (Filter.limsup A atTop) = 1 by
+    rw [← MeasureTheory.mem_ae_iff_prob_eq_one (by sorry)] at h --meas
+    filter_upwards [h] with ω hω
+    rw [Filter.mem_limsup_iff_frequently_mem] at hω
+    have htend : Tendsto (fun n : ℕ => c ^ n) atTop (atTop : Filter NNReal) :=
+      tendsto_pow_atTop_atTop_of_one_lt hc1
+    apply le_limsup_of_frequently_le'
+    apply Filter.Tendsto.frequently_map _ htend _ hω
+    intro n hn
+    simpa [EReal.coe_le_coe_iff, mul_comm, pow_add, pow_one] using hn.out
+  apply ProbabilityTheory.measure_limsup_eq_one hA
+  all_goals unfold A
+  · sorry --independence
+  · sorry --non-summability
