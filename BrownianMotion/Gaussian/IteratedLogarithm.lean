@@ -23,6 +23,20 @@ lemma IsBrownian.upper_tail {X} (hX : IsBrownian X P) : ∃ C : ℝ≥0, ∀ (t 
       ≤ C * Real.sqrt (c^2 / (t : ℝ))⁻¹ * Real.exp (-1/2 * (c^2 / (t : ℝ))) := by
   sorry
 
+lemma HasIndepIncrements.infinite_increments [Preorder T] [Sub E] [MeasurableSpace E] (X : T → Ω → E)
+    (P : Measure Ω := by volume_tac) : HasIndepIncrements X P ↔
+      ∀ t : ℕ → T, Monotone t → iIndepFun (fun i ω ↦ X (t (i + 1)) ω - X (t i) ω) P := sorry
+
+lemma iIndep_of_iIndep_of_comap_le [Preorder T] [Sub E] [MeasurableSpace E] (X : T → Ω → E)
+    (P : Measure Ω := by volume_tac) : HasIndepIncrements X P ↔
+      ∀ t : ℕ → T, Monotone t → iIndepFun (fun i ω ↦ X (t (i + 1)) ω - X (t i) ω) P := sorry
+
+lemma filter_atTop_atTop (c : ℝ≥0) (hc0 : 0 < c) :
+    Filter.map (fun x ↦ c * x : ℝ≥0 → ℝ≥0) atTop = atTop := by
+  apply Filter.map_atTop_eq_of_gc_preorder (mul_right_mono) 0 _
+  exact fun d _ ↦ ⟨c⁻¹ * d, ⟨mul_inv_cancel_left₀ (by aesop) d,
+    fun _ ↦ (le_inv_mul_iff₀ hc0).symm⟩⟩
+
 variable (X : ℝ≥0 → Ω → ℝ) [hX : ProbabilityTheory.IsBrownian X P]
 
 lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
@@ -142,30 +156,27 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
   intro c hc1
   lift c to ℝ≥0 using by positivity
   have hc0 : (0 < c) := by positivity [by exact_mod_cast hc1]
+
   suffices h : ∀ᵐ ω ∂P, (1 - 1 / (c : ℝ)).sqrt ≤
       limsup (fun t ↦ ((X (c * t) ω - X t ω) / f (c * t)).toEReal) atTop by
-    have h' : ∀ᵐ ω ∂P, limsup (fun t ↦ ((-X t ω) / f (c * t)).toEReal) atTop
-        ≤ (1 / (c : ℝ).sqrt).toEReal := by
-      sorry -- Consequence of LIL_upper by symmetry
+    have h' : ∀ᵐ ω ∂P,
+        limsup (fun t ↦ (-X t ω / f (c * t)).toEReal) atTop
+          ≤ (1 / (c : ℝ).sqrt).toEReal := by
+      sorry -- consequence of LIL_upper + scaling + symmetry
     filter_upwards [h, h'] with ω hω hω'
-    apply EReal.sub_le_of_le_add <| le_trans hω _
-    simp_rw [← div_sub_div_same, sub_eq_add_neg, EReal.coe_add, ← neg_div]
-    · apply le_trans (EReal.limsup_add_le (by aesop) _) _
-      · sorry -- not Bot
-      · apply add_le_add (_) <| by simpa [← EReal.coe_neg, ← neg_div] using hω'
-        apply le_of_eq
-        have h : Filter.map (fun x ↦ c * x : ℝ≥0 → ℝ≥0) atTop = atTop := by
-          apply Filter.map_atTop_eq_of_gc_preorder (mul_right_mono) 0 _
-          exact fun d _ ↦ ⟨c⁻¹ * d, ⟨mul_inv_cancel_left₀ (by aesop) d,
-            fun _ ↦ (le_inv_mul_iff₀ hc0).symm⟩⟩
-        nth_rw 2 [← h]
-        simpa [Filter.limsup_comp (α := EReal)] using by rfl
+    simp_rw [neg_div, EReal.coe_neg, ← Pi.neg_def, EReal.limsup_neg, EReal.neg_le] at hω'
+    apply le_trans (add_le_add hω hω') <| le_trans EReal.le_limsup_add <| le_of_eq _
+    nth_rw 2 [← filter_atTop_atTop c hc0]
+    simp_rw [← Filter.limsup_comp, Function.comp_def, ← EReal.coe_div, ← div_sub_div_same,
+      EReal.coe_sub, Pi.add_def]
+    norm_cast; aesop
   let A := fun n ↦ {ω | (1 - 1 / (c : ℝ)).sqrt ≤
     (X (c ^ (n + 1)) ω - X (c ^ n) ω) / f (c ^ (n + 1))}
-  have hA : ((n : ℕ) → MeasurableSet (A n)) := sorry -- meas
+
+  have hM : (t : ℝ≥0) → Measurable (X t) := sorry -- add as hypothesis?
 
   suffices h : P (Filter.limsup A atTop) = 1 by
-    rw [← MeasureTheory.mem_ae_iff_prob_eq_one (by sorry)] at h --meas
+    rw [← MeasureTheory.mem_ae_iff_prob_eq_one <| by measurability] at h --meas
     filter_upwards [h] with ω hω
     rw [Filter.mem_limsup_iff_frequently_mem] at hω
     have htend : Tendsto (fun n : ℕ => c ^ n) atTop (atTop : Filter NNReal) :=
@@ -174,7 +185,11 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
     apply Filter.Tendsto.frequently_map _ htend _ hω
     intro n hn
     simpa [EReal.coe_le_coe_iff, mul_comm, pow_add, pow_one] using hn.out
-  apply ProbabilityTheory.measure_limsup_eq_one hA
+  apply ProbabilityTheory.measure_limsup_eq_one (by measurability)
   all_goals unfold A
-  · sorry -- independence: very awkward since hasIndepIncrements only supports finite index set
+  · -- independence needs two ingredients:
+    -- 1. iIndep_of_iIndep_of_le (PR #34542 in mathlib)
+    -- 2. 'infinite' independent increments from independent increments (TODO)
+    rw [iIndepSet_iff_iIndep]
+    sorry
   · sorry --non-summability
