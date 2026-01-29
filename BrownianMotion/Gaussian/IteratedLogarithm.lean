@@ -23,14 +23,6 @@ lemma IsBrownian.upper_tail {X} (hX : IsBrownian X P) : ∃ C : ℝ≥0, ∀ (t 
       ≤ C * Real.sqrt (c^2 / (t : ℝ))⁻¹ * Real.exp (-1/2 * (c^2 / (t : ℝ))) := by
   sorry
 
-lemma HasIndepIncrements.infinite_increments [Preorder T] [Sub E] [MeasurableSpace E] (X : T → Ω → E)
-    (P : Measure Ω := by volume_tac) : HasIndepIncrements X P ↔
-      ∀ t : ℕ → T, Monotone t → iIndepFun (fun i ω ↦ X (t (i + 1)) ω - X (t i) ω) P := sorry
-
-lemma iIndep_of_iIndep_of_comap_le [Preorder T] [Sub E] [MeasurableSpace E] (X : T → Ω → E)
-    (P : Measure Ω := by volume_tac) : HasIndepIncrements X P ↔
-      ∀ t : ℕ → T, Monotone t → iIndepFun (fun i ω ↦ X (t (i + 1)) ω - X (t i) ω) P := sorry
-
 lemma filter_atTop_atTop (c : ℝ≥0) (hc0 : 0 < c) :
     Filter.map (fun x ↦ c * x : ℝ≥0 → ℝ≥0) atTop = atTop := by
   apply Filter.map_atTop_eq_of_gc_preorder (mul_right_mono) 0 _
@@ -176,7 +168,7 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
   have hM : (t : ℝ≥0) → Measurable (X t) := sorry -- add as hypothesis?
 
   suffices h : P (Filter.limsup A atTop) = 1 by
-    rw [← MeasureTheory.mem_ae_iff_prob_eq_one <| by measurability] at h --meas
+    rw [← MeasureTheory.mem_ae_iff_prob_eq_one <| by measurability] at h
     filter_upwards [h] with ω hω
     rw [Filter.mem_limsup_iff_frequently_mem] at hω
     have htend : Tendsto (fun n : ℕ => c ^ n) atTop (atTop : Filter NNReal) :=
@@ -187,9 +179,19 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
     simpa [EReal.coe_le_coe_iff, mul_comm, pow_add, pow_one] using hn.out
   apply ProbabilityTheory.measure_limsup_eq_one (by measurability)
   all_goals unfold A
-  · -- independence needs two ingredients:
-    -- 1. iIndep_of_iIndep_of_le (PR #34542 in mathlib)
-    -- 2. 'infinite' independent increments from independent increments (TODO)
-    rw [iIndepSet_iff_iIndep]
-    sorry
+  · rw [iIndepSet_iff_iIndep]
+    have h' := hX.hasIndepIncrements
+    rw [HasIndepIncrements.infinite_increments X P] at h'
+    specialize h' (fun n ↦ c ^ n) _
+    · apply pow_right_monotone <| le_of_lt <| by exact_mod_cast hc1
+    rw [iIndepFun_iff_iIndep] at h'
+    have h_le : (n : ℕ) → generateFrom {(A n)} ≤
+        MeasurableSpace.comap (fun ω ↦ X (c ^ (n + 1)) ω - X (c ^ n) ω) Real.measurableSpace := by
+      -- this proof should be trivial...
+      intro n; unfold A
+      simp_rw [le_div_iff₀ sorry] -- 0 < f (c ^ (n + 1))
+      apply generateFrom_singleton_le <| measurableSet_le _ _
+      · measurability
+      · apply Measurable.of_comap_le (by rfl)
+    sorry -- apply iIndep_of_iIndep_of_le (PR #34542 in mathlib)
   · sorry --non-summability
