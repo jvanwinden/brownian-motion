@@ -189,9 +189,11 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
         MeasurableSpace.comap (fun ω ↦ X (c ^ (n + 1)) ω - X (c ^ n) ω) Real.measurableSpace := by
       -- this proof should be trivial...
       intro n; unfold A
-      simp_rw [le_div_iff₀ sorry] -- 0 < f (c ^ (n + 1))
-      apply generateFrom_singleton_le <| measurableSet_le _ _
-      · measurability
-      · apply Measurable.of_comap_le (by rfl)
-    sorry -- apply iIndep_of_iIndep_of_le (PR #34542 in mathlib)
-  · sorry --non-summability
+      by_cases! hf : 0 < f (c ^ (n + 1))
+      · simp_rw [le_div_iff₀ hf]
+        apply generateFrom_singleton_le <| measurableSet_le (by measurability) _
+        apply Measurable.of_comap_le (by rfl)
+      · simp [le_antisymm hf (by positivity)]
+    -- the line below can be replaced by `iIndep_of_iIndep_of_le`
+    exact fun s t ht ↦ h' s fun i hi ↦ h_le i (t i) <| ht i hi
+  · sorry
