@@ -196,4 +196,44 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
       · simp [le_antisymm hf (by positivity)]
     -- the line below can be replaced by `iIndep_of_iIndep_of_le`
     exact fun s t ht ↦ h' s fun i hi ↦ h_le i (t i) <| ht i hi
-  · sorry
+  -- convert tsum_eq_top to ¬Summable
+  conv in P _ =>
+    rw [← MeasureTheory.ofReal_measureReal]
+  simp_rw [← ENNReal.ofNNReal_toNNReal, ENNReal.tsum_coe_eq_top_iff_not_summable_coe,
+    Real.coe_toNNReal (r := P.real _) (by positivity)]
+  -- rewrite in terms of a standard normal
+  let f' := fun n : ℕ ↦ (2 * (c ^ (n + 1) : ℝ).log.log).sqrt
+  have h' : ∀ n, ∀ x, √(1 - 1 / c : ℝ) ≤ x / f (c ^ (n + 1)) ↔
+      f' (n + 1) ≤ x / (c ^ (n + 1)- c ^ n : ℝ).sqrt := by
+    sorry -- elementary rewriting
+  simp_rw [h']
+  suffices h : ¬(Summable (fun n ↦ P.real {ω | f' (n + 1) ≤ X 1 ω})) by
+    convert h using 2
+    funext n
+    repeat rw [← MeasureTheory.integral_indicator_one (by measurability)]
+    apply ProbabilityTheory.IdentDistrib.integral_eq
+    sorry -- identical distribution
+  have hmono : Antitone fun n : ℕ ↦ P.real {ω | f' (n + 1) ≤ X 1 ω} := by sorry -- monotonicity
+  -- apply condensation test
+  rw [← not_congr <| summable_condensed_iff_of_nonneg (by aesop) (by aesop)]
+  sorry -- compare to n ^ (- 1 / 2)
+
+
+  -- have hfmono : Monotone fun n : ℕ ↦ f (c ^ (n + 1)) := by
+  --   intro n m hnm
+  --   by_cases! h' : 0 < ((c ^ (n + 1)) : ℝ).log.log
+  --   · apply Real.sqrt_monotone
+  --     simp_rw [mul_assoc]; push_cast
+  --     apply mul_le_mul_of_nonneg_left _ (by norm_num)
+  --     apply mul_le_mul (by bound) _ (le_of_lt h') (by positivity)
+  --     apply Real.log_le_log _ _
+  --     · rw [← Real.exp_lt_exp]
+  --       rw [Real.exp_log]
+  --       · rw [Real.exp_zero, one_lt_pow_iff_of_nonneg (by bound) (by bound)]
+  --         exact hc1
+  --       bound
+  --     apply Real.log_le_log (by bound) (by bound)
+  --   · have hzero : f (c ^ (n + 1)) = 0 := by
+  --       apply Real.sqrt_eq_zero_of_nonpos
+  --       apply mul_nonpos_of_nonneg_of_nonpos (by positivity) (h')
+  --     simpa [hzero] using by positivity
