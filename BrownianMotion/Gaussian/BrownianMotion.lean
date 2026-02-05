@@ -113,8 +113,8 @@ def HasIndepIncrements [Preorder T] [Sub E] [MeasurableSpace E] (X : T → Ω �
   ∀ n, ∀ t : Fin (n + 1) → T, Monotone t →
     iIndepFun (fun (i : Fin n) ω ↦ X (t i.succ) ω - X (t i.castSucc) ω) P
 
-lemma HasIndepIncrements.infinite_increments [Preorder T] [Sub E] [MeasurableSpace E]
-    (X : T → Ω → E) (P : Measure Ω := by volume_tac) [IsProbabilityMeasure P] :
+lemma HasIndepIncrements.iff_increments_nat [Preorder T] [Sub E] [MeasurableSpace E]
+    {X : T → Ω → E} {P : Measure Ω} [IsProbabilityMeasure P] :
     HasIndepIncrements X P ↔ ∀ t : ℕ → T, Monotone t →
       iIndepFun (fun i ω ↦ X (t (i + 1)) ω - X (t i) ω) P := by
   constructor

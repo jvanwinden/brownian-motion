@@ -23,6 +23,11 @@ lemma IsBrownian.upper_tail {X} (hX : IsBrownian X P) : ∃ C : ℝ≥0, ∀ (t 
       ≤ C * Real.sqrt (c^2 / (t : ℝ))⁻¹ * Real.exp (-1/2 * (c^2 / (t : ℝ))) := by
   sorry
 
+lemma IsStandardGaussian.tail {X} (hX : HasLaw X (gaussianReal 0 1) P) :
+    Asymptotics.IsEquivalent atTop (fun x ↦ P.real {ω | x ≤ X ω})
+    (fun x ↦ 1 / x * (-1/2 * x ^ 2).exp) := by
+  sorry
+
 lemma filter_atTop_atTop (c : ℝ≥0) (hc0 : 0 < c) :
     Filter.map (fun x ↦ c * x : ℝ≥0 → ℝ≥0) atTop = atTop := by
   apply Filter.map_atTop_eq_of_gc_preorder (mul_right_mono) 0 _
@@ -101,7 +106,8 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
     eventually_ge_atTop 1] with n hll1 instHashableInt16
   -- Apply Gaussian tail bound and simplify
   repeat rw [Real.norm_of_nonneg (by positivity)]
-  refine le_trans ?_ <| le_trans (h' (c ^ (n + 1)) (c * f (c ^ n)) (by positivity)) ?_
+  -- is there a better way to stick 'a ≤ b' in the middle?
+  refine le_trans ?_ <| ((h' (c ^ (n + 1)) (c * f (c ^ n)) (by positivity)).trans ?_)
   · exact measureReal_mono (fun _ hω ↦ le_of_lt hω.out) (by finiteness)
   have hfrac : (c * f (c^n))^2 / ((c ^ (n+1)) : ℝ≥0) = 2 * c * (c ^ n : ℝ).log.log := by
     push_cast
@@ -157,7 +163,8 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
       sorry -- consequence of LIL_upper + scaling + symmetry
     filter_upwards [h, h'] with ω hω hω'
     simp_rw [neg_div, EReal.coe_neg, ← Pi.neg_def, EReal.limsup_neg, EReal.neg_le] at hω'
-    apply le_trans (add_le_add hω hω') <| le_trans EReal.le_limsup_add <| le_of_eq _
+    grw [sub_eq_add_neg, (add_le_add hω hω'), EReal.le_limsup_add]
+    apply le_of_eq
     nth_rw 2 [← filter_atTop_atTop c hc0]
     simp_rw [← Filter.limsup_comp, Function.comp_def, ← EReal.coe_div, ← div_sub_div_same,
       EReal.coe_sub, Pi.add_def]
@@ -181,7 +188,7 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
   all_goals unfold A
   · rw [iIndepSet_iff_iIndep]
     have h' := hX.hasIndepIncrements
-    rw [HasIndepIncrements.infinite_increments X P] at h'
+    rw [HasIndepIncrements.iff_increments_nat] at h'
     specialize h' (fun n ↦ c ^ n) _
     · apply pow_right_monotone <| le_of_lt <| by exact_mod_cast hc1
     rw [iIndepFun_iff_iIndep] at h'
@@ -201,39 +208,62 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
     rw [← MeasureTheory.ofReal_measureReal]
   simp_rw [← ENNReal.ofNNReal_toNNReal, ENNReal.tsum_coe_eq_top_iff_not_summable_coe,
     Real.coe_toNNReal (r := P.real _) (by positivity)]
+
+  -- auxiliary function
+  let g := fun n : ℕ ↦ (2 * (c ^ n : ℝ).log.log).sqrt
+  have hg : Tendsto g atTop atTop := sorry
+
   -- rewrite in terms of a standard normal
-  let f' := fun n : ℕ ↦ (2 * (c ^ (n + 1) : ℝ).log.log).sqrt
-  have h' : ∀ n, ∀ x, √(1 - 1 / c : ℝ) ≤ x / f (c ^ (n + 1)) ↔
-      f' (n + 1) ≤ x / (c ^ (n + 1)- c ^ n : ℝ).sqrt := by
-    sorry -- elementary rewriting
-  simp_rw [h']
-  suffices h : ¬(Summable (fun n ↦ P.real {ω | f' (n + 1) ≤ X 1 ω})) by
+  suffices h : ¬(Summable (fun n ↦ P.real {ω | g (n) ≤ X 1 ω})) by
+    -- shift index
+    rw [← summable_nat_add_iff 1 (G := ℝ)] at h
     convert h using 2
     funext n
+    have h' : ∀ x, √(1 - 1 / c : ℝ) ≤ x / f (c ^ (n + 1)) ↔
+        g (n + 1) ≤ x / (c ^ (n + 1) - c ^ n : ℝ).sqrt := by
+      sorry -- elementary rewrite
+    simp_rw [h']
     repeat rw [← MeasureTheory.integral_indicator_one (by measurability)]
     apply ProbabilityTheory.IdentDistrib.integral_eq
+    refine ⟨sorry, sorry,?_⟩
     sorry -- identical distribution
-  have hmono : Antitone fun n : ℕ ↦ P.real {ω | f' (n + 1) ≤ X 1 ω} := by sorry -- monotonicity
-  -- apply condensation test
-  rw [← not_congr <| summable_condensed_iff_of_nonneg (by aesop) (by aesop)]
-  sorry -- compare to n ^ (- 1 / 2)
 
-
-  -- have hfmono : Monotone fun n : ℕ ↦ f (c ^ (n + 1)) := by
-  --   intro n m hnm
-  --   by_cases! h' : 0 < ((c ^ (n + 1)) : ℝ).log.log
-  --   · apply Real.sqrt_monotone
-  --     simp_rw [mul_assoc]; push_cast
-  --     apply mul_le_mul_of_nonneg_left _ (by norm_num)
-  --     apply mul_le_mul (by bound) _ (le_of_lt h') (by positivity)
-  --     apply Real.log_le_log _ _
-  --     · rw [← Real.exp_lt_exp]
-  --       rw [Real.exp_log]
-  --       · rw [Real.exp_zero, one_lt_pow_iff_of_nonneg (by bound) (by bound)]
-  --         exact hc1
-  --       bound
-  --     apply Real.log_le_log (by bound) (by bound)
-  --   · have hzero : f (c ^ (n + 1)) = 0 := by
-  --       apply Real.sqrt_eq_zero_of_nonpos
-  --       apply mul_nonpos_of_nonneg_of_nonpos (by positivity) (h')
-  --     simpa [hzero] using by positivity
+  rw [← IsEquivalent.summable_iff_nat
+      (f := fun n ↦ (1 / Real.sqrt 2) * (1 / (Real.log n).sqrt) * (1 / n) * (1 / Real.log c))]
+  · rw [summable_mul_right_iff <| one_div_ne_zero <| ne_of_gt <| Real.log_pos hc1]
+    simp_rw [mul_assoc]
+    rw [summable_mul_left_iff (by positivity)]
+    rw [← summable_condensed_iff_of_nonneg (fun _ ↦ by positivity)]
+    · push_cast; field_simp
+      simp_rw [Real.log_pow]
+      conv in √_ => rw [Real.sqrt_mul (by positivity)]
+      simp_rw [← one_div_mul_one_div]
+      rw [summable_mul_right_iff]
+      · simp_rw [Real.sqrt_eq_rpow]
+        rw [Real.summable_one_div_nat_rpow]
+        norm_num
+      · apply ne_of_gt
+        positivity
+    · sorry -- monotonicity does not hold... only eventualy monotonicity
+  · -- asymptotic equivalence of elementary functions
+    have h' := (IsStandardGaussian.tail <| hX.hasLaw_eval 1).comp_tendsto hg
+    simp_rw [Function.comp_def] at h'
+    grw [h']
+    conv in _ * _ * _ => rw [mul_assoc]
+    apply Asymptotics.IsEquivalent.mul
+    · unfold g
+      simp_rw [one_div_mul_one_div]
+      apply Asymptotics.IsEquivalent.div (by rfl)
+      conv in √_ * √_ => rw [← Real.sqrt_mul (by positivity)]
+      simp_rw [Real.sqrt_eq_rpow]
+      -- we want to use IsEquivalent.rpow and IsEquivalent.log
+      -- but we are behind Mathlib, so wait for a while
+      sorry
+    · -- here we actually have an identity
+      apply Filter.EventuallyEq.isEquivalent
+      filter_upwards with n
+      rw [Real.sq_sqrt sorry] -- positivity
+      field_simp
+      rw [Real.exp_neg]
+      rw [Real.exp_log sorry] -- positivity
+      simp
