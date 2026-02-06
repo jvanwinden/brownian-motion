@@ -223,11 +223,12 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
         g (n + 1) ≤ x / (c ^ (n + 1) - c ^ n : ℝ).sqrt := by
       sorry -- elementary rewrite
     simp_rw [h']
-    repeat rw [← MeasureTheory.integral_indicator_one (by measurability)]
-    apply ProbabilityTheory.IdentDistrib.integral_eq
-    refine ⟨sorry, sorry,?_⟩
-    sorry -- identical distribution
-
+    rw [Measure.real_def, Measure.real_def]
+    rw [ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)]
+    apply ProbabilityTheory.IdentDistrib.measure_mem_eq _
+      (by measurability : MeasurableSet (Set.Ici (g (n + 1))))
+    -- we would like to use `hasLaw.identDistrib` but we are behind mathlib
+    sorry
   rw [← IsEquivalent.summable_iff_nat
       (f := fun n ↦ (1 / Real.sqrt 2) * (1 / (Real.log n).sqrt) * (1 / n) * (1 / Real.log c))]
   · rw [summable_mul_right_iff <| one_div_ne_zero <| ne_of_gt <| Real.log_pos hc1]
@@ -244,7 +245,15 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
         norm_num
       · apply ne_of_gt
         positivity
-    · sorry -- monotonicity does not hold... only eventualy monotonicity
+    · sorry
+    -- · intro m n hm0 hmn
+    --   apply mul_le_mul _ _ (by positivity) (by positivity)
+    --   · rw [one_div_le_one_div]
+    --     apply Real.sqrt_le_sqrt
+    --     apply Real.log_le_log (by positivity) (by aesop)
+    --     all_goals rw [Real.sqrt_pos]; apply Real.log_pos; push_cast; linarith
+    --   · rw [one_div_le_one_div (by positivity) (by positivity)]
+    --     aesop
   · -- asymptotic equivalence of elementary functions
     have h' := (IsStandardGaussian.tail <| hX.hasLaw_eval 1).comp_tendsto hg
     simp_rw [Function.comp_def] at h'
@@ -256,8 +265,8 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
       apply Asymptotics.IsEquivalent.div (by rfl)
       conv in √_ * √_ => rw [← Real.sqrt_mul (by positivity)]
       simp_rw [Real.sqrt_eq_rpow]
-      -- we want to use IsEquivalent.rpow and IsEquivalent.log
-      -- but we are behind Mathlib, so wait for a while
+      -- we want to use `IsEquivalent.rpow` and `IsEquivalent.log`
+      -- but we are behind Mathlib
       sorry
     · -- here we actually have an identity
       apply Filter.EventuallyEq.isEquivalent
