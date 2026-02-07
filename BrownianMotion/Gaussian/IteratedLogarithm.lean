@@ -231,29 +231,37 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
     sorry
   rw [← IsEquivalent.summable_iff_nat
       (f := fun n ↦ (1 / Real.sqrt 2) * (1 / (Real.log n).sqrt) * (1 / n) * (1 / Real.log c))]
-  · rw [summable_mul_right_iff <| one_div_ne_zero <| ne_of_gt <| Real.log_pos hc1]
+  · -- prove non-summability of elementary function
+    rw [summable_mul_right_iff <| one_div_ne_zero <| ne_of_gt <| Real.log_pos hc1]
     simp_rw [mul_assoc]
     rw [summable_mul_left_iff (by positivity)]
-    rw [← summable_condensed_iff_of_nonneg (fun _ ↦ by positivity)]
-    · push_cast; field_simp
-      simp_rw [Real.log_pow]
-      conv in √_ => rw [Real.sqrt_mul (by positivity)]
-      simp_rw [← one_div_mul_one_div]
-      rw [summable_mul_right_iff]
-      · simp_rw [Real.sqrt_eq_rpow]
-        rw [Real.summable_one_div_nat_rpow]
-        norm_num
-      · apply ne_of_gt
-        positivity
-    · sorry
-    -- · intro m n hm0 hmn
-    --   apply mul_le_mul _ _ (by positivity) (by positivity)
-    --   · rw [one_div_le_one_div]
-    --     apply Real.sqrt_le_sqrt
-    --     apply Real.log_le_log (by positivity) (by aesop)
-    --     all_goals rw [Real.sqrt_pos]; apply Real.log_pos; push_cast; linarith
-    --   · rw [one_div_le_one_div (by positivity) (by positivity)]
-    --     aesop
+    rw [summable_congr_atTop (g₁ := fun n : ℕ ↦ 1 / √(Real.log (max n 2)) * (1 / ↑n))]
+    · rw [← summable_condensed_iff_of_nonneg (fun _ ↦ by positivity)]
+      · push_cast; field_simp
+        rw [summable_congr_atTop (g₁ := fun n : ℕ ↦ 1 / √(Real.log (2 ^ n)))]
+        · simp_rw [Real.log_pow]
+          conv in √_ => rw [Real.sqrt_mul (by positivity)]
+          simp_rw [← one_div_mul_one_div]
+          rw [summable_mul_right_iff]
+          · simp_rw [Real.sqrt_eq_rpow]
+            rw [Real.summable_one_div_nat_rpow]
+            norm_num
+          · apply ne_of_gt
+            positivity
+        · filter_upwards [eventually_ge_atTop 1] with n hn
+          rw [max_eq_left]; bound
+      · intro m n hm0 hmn
+        apply mul_le_mul _ _ (by positivity) (by positivity)
+        · rw [one_div_le_one_div]
+          · apply Real.sqrt_le_sqrt
+            apply Real.log_le_log (by positivity)
+            · apply max_le_max_right; aesop
+          all_goals rw [Real.sqrt_pos]; apply Real.log_pos; simp
+        · rw [one_div_le_one_div (by bound) (by positivity)]
+          aesop
+    · filter_upwards [eventually_ge_atTop 2] with n hn
+      rw [max_eq_left]
+      aesop
   · -- asymptotic equivalence of elementary functions
     have h' := (IsStandardGaussian.tail <| hX.hasLaw_eval 1).comp_tendsto hg
     simp_rw [Function.comp_def] at h'
@@ -271,8 +279,9 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
     · -- here we actually have an identity
       apply Filter.EventuallyEq.isEquivalent
       filter_upwards with n
-      rw [Real.sq_sqrt sorry] -- positivity
+      -- for both cases, need 1 ≤ Real.log c ^ n
+      rw [Real.sq_sqrt (by sorry)] -- positivity
       field_simp
       rw [Real.exp_neg]
-      rw [Real.exp_log sorry] -- positivity
+      rw [Real.exp_log (by sorry)] -- positivity
       simp
