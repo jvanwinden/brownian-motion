@@ -209,9 +209,14 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
   simp_rw [← ENNReal.ofNNReal_toNNReal, ENNReal.tsum_coe_eq_top_iff_not_summable_coe,
     Real.coe_toNNReal (r := P.real _) (by positivity)]
 
-  -- auxiliary function
+  have hlogc : 1 < Real.log c := sorry -- get it from before wlog
+
   let g := fun n : ℕ ↦ (2 * (c ^ n : ℝ).log.log).sqrt
-  have hg : Tendsto g atTop atTop := sorry
+  have h'' : Tendsto (fun n : ℕ ↦ Real.log (c ^ n)) atTop atTop := by
+    simp_rw [Real.log_pow]
+    apply Filter.Tendsto.atTop_mul_const (by bound)
+    apply tendsto_natCast_atTop_atTop
+  have hg : Tendsto g atTop atTop := sorry -- elementary limit
 
   -- rewrite in terms of a standard normal
   suffices h : ¬(Summable (fun n ↦ P.real {ω | g (n) ≤ X 1 ω})) by
@@ -221,14 +226,28 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
     funext n
     have h' : ∀ x, √(1 - 1 / c : ℝ) ≤ x / f (c ^ (n + 1)) ↔
         g (n + 1) ≤ x / (c ^ (n + 1) - c ^ n : ℝ).sqrt := by
-      sorry -- elementary rewrite
+      intro x
+      unfold f
+      conv in 2 * _ => rw [mul_comm]
+      rw [mul_assoc, Real.sqrt_mul (by positivity)]
+      push_cast
+      rw [le_div_iff₀ (by sorry)] -- positivity
+      rw [le_div_iff₀ (by sorry)] -- positivity
+      rw [← mul_assoc, mul_comm]
+      rw [← Real.sqrt_mul' _ (by bound)]
+      rw [sub_mul]
+      apply iff_of_eq
+      congr 4
+      · simp
+      · rw [pow_add]
+        field_simp
     simp_rw [h']
     rw [Measure.real_def, Measure.real_def]
     rw [ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)]
     apply ProbabilityTheory.IdentDistrib.measure_mem_eq _
       (by measurability : MeasurableSet (Set.Ici (g (n + 1))))
     -- we would like to use `hasLaw.identDistrib` but we are behind mathlib
-    sorry
+    sorry -- identical distribution
   rw [← IsEquivalent.summable_iff_nat
       (f := fun n ↦ (1 / Real.sqrt 2) * (1 / (Real.log n).sqrt) * (1 / n) * (1 / Real.log c))]
   · -- prove non-summability of elementary function
@@ -275,13 +294,13 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
       simp_rw [Real.sqrt_eq_rpow]
       -- we want to use `IsEquivalent.rpow` and `IsEquivalent.log`
       -- but we are behind Mathlib
-      sorry
+      sorry -- asymptotic equivalence
     · -- here we actually have an identity
       apply Filter.EventuallyEq.isEquivalent
-      filter_upwards with n
-      -- for both cases, need 1 ≤ Real.log c ^ n
-      rw [Real.sq_sqrt (by sorry)] -- positivity
+      filter_upwards [h''.eventually_ge_atTop 1] with n hn
+      rw [Real.sq_sqrt (by bound)] -- positivity
       field_simp
       rw [Real.exp_neg]
-      rw [Real.exp_log (by sorry)] -- positivity
-      simp
+      rw [Real.exp_log <| lt_of_lt_of_le (by norm_num) hn] -- positivity
+      rw [Real.log_pow]
+      field_simp
