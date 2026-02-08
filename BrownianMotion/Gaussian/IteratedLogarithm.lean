@@ -23,6 +23,9 @@ lemma IsBrownian.upper_tail {X} (hX : IsBrownian X P) : ∃ C : ℝ≥0, ∀ (t 
       ≤ C * Real.sqrt (c^2 / (t : ℝ))⁻¹ * Real.exp (-1/2 * (c^2 / (t : ℝ))) := by
   sorry
 
+lemma IsBrownian.reflection {X} (hX : IsBrownian X P) (t : ℝ≥0) (c : ℝ) (hc : 0 < c)
+    : P {ω | c ≤ ⨆ s ≤ t, (X s ω).toEReal} = 2 * P {ω | c ≤ X t ω} := sorry
+
 lemma IsStandardGaussian.tail {X} (hX : HasLaw X (gaussianReal 0 1) P) :
     Asymptotics.IsEquivalent atTop (fun x ↦ P.real {ω | x ≤ X ω})
     (fun x ↦ 1 / x * (-1/2 * x ^ 2).exp) := by
