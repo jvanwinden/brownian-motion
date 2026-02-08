@@ -229,7 +229,15 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
       conv in 2 * _ => rw [mul_comm]
       rw [mul_assoc, Real.sqrt_mul (by positivity)]
       push_cast
-      rw [le_div_iff₀ (by sorry)] -- positivity (of g)
+      rw [le_div_iff₀]; swap
+      · apply mul_pos
+        · rw [Real.sqrt_pos]
+          bound
+        · rw [Real.sqrt_pos]
+          apply mul_pos (by bound)
+          apply Real.log_pos
+          simp_rw [Real.log_pow]
+          bound
       rw [le_div_iff₀ (?_)]; swap -- positivity (of elementary function)
       · rw [Real.sqrt_pos, sub_pos, pow_lt_pow_iff_right₀ (by bound)]
         bound
