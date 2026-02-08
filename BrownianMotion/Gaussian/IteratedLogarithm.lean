@@ -130,15 +130,20 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
     · rw [Real.log_pow]
       positivity [Real.log_pos hc]
 
-lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / (2 * t * (t : ℝ).log.log).sqrt :
-    ℝ≥0 → EReal) atTop := by
+lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
+    ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / (2 * t * (t : ℝ).log.log).sqrt : ℝ≥0 → EReal) atTop := by
   let f := fun (t : ℝ≥0) ↦ (2 * t * (t : ℝ).log.log).sqrt
   -- Rewrite the inequality into a nice form with the quantifier outside
   suffices h : ∀ (c : ℝ), 1 < c → 1 < Real.log c → ∀ᵐ ω ∂P, (1 - 1 / c).sqrt - (1 / c.sqrt : ℝ) ≤
       limsup (fun t ↦ (X t ω) / (f t) : ℝ≥0 → EReal) atTop by
     simp_rw [ae_const_le_iff_forall_lt_measure_zero, ← not_lt, ← ae_iff]
     have h' : Filter.Tendsto (fun (r : ℝ) ↦ (1 - 1 / r).sqrt - (1 / r.sqrt)) atTop (nhds 1) := by
-      sorry -- the exact expression is subject to change, so hold off on the proof
+      rw [(by simp : nhds (1 : ℝ) = nhds (Real.sqrt (1 - 0) - 0))]
+      apply Filter.Tendsto.sub
+      · apply Filter.Tendsto.sqrt
+        apply Filter.Tendsto.sub (by aesop)
+        apply Filter.Tendsto.const_div_atTop <| tendsto_id
+      · apply Filter.Tendsto.const_div_atTop <| Real.tendsto_sqrt_atTop
     intro c hc1
     wlog! hc0 : (0 < c) generalizing c with h
     · replace h := fun (c : ℝ) ↦ h c
@@ -171,8 +176,6 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
     norm_cast; aesop
   let A := fun n ↦ {ω | (1 - 1 / (c : ℝ)).sqrt ≤
     (X (c ^ (n + 1)) ω - X (c ^ n) ω) / f (c ^ (n + 1))}
-
-  have hM : (t : ℝ≥0) → Measurable (X t) := sorry -- add as hypothesis?
 
   suffices h : P (Filter.limsup A atTop) = 1 by
     rw [← MeasureTheory.mem_ae_iff_prob_eq_one <| by measurability] at h
@@ -214,7 +217,13 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
     simp_rw [Real.log_pow]
     apply Filter.Tendsto.atTop_mul_const (by bound)
     apply tendsto_natCast_atTop_atTop
-  have hg : Tendsto (fun n ↦ g (max 1 n)) atTop atTop := sorry -- elementary limit
+  have hg : Tendsto (fun n ↦ g (max 1 n)) atTop atTop := by
+    apply Real.tendsto_sqrt_atTop.comp
+    apply Filter.Tendsto.const_mul_atTop (by norm_num)
+    apply Real.tendsto_log_atTop.comp
+    apply Real.tendsto_log_atTop.comp
+    apply tendsto_pow_atTop_atTop_of_one_lt hc1 |>.congr'
+    exact eventually_ge_atTop 1|>.mono <| fun _ hn ↦ by simp [max_eq_right hn]
 
   -- rewrite in terms of a standard normal
   suffices h : ¬(Summable (fun n ↦ P.real {ω | g (max 1 n) ≤ X 1 ω})) by
@@ -277,25 +286,45 @@ lemma IsBrownian.LIL_lower : ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / 
     rw [summable_mul_left_iff (by positivity)]
     conv in Real.log _ => rw [Real.log_mul (by positivity) (by positivity)]
     rw [← summable_condensed_iff_of_nonneg (fun _ ↦ by positivity)]
-    push_cast
+    all_goals push_cast
     · conv in max _ _ => rw [max_eq_right (by bound)]
       conv in max _ _ => rw [max_eq_right (by bound)]
       field_simp
       simp_rw [Real.log_pow]
-      sorry -- summability of modified p-series
+      rw [← IsEquivalent.summable_iff_nat (f := fun k : ℕ ↦ 1 / Real.sqrt (k * Real.log 2))]
+      · conv in √_ => rw [Real.sqrt_mul (by positivity)]
+        simp_rw [← one_div_mul_one_div]
+        rw [summable_mul_right_iff (by positivity)]
+        simp_rw [Real.sqrt_eq_rpow]
+        rw [Real.summable_one_div_nat_rpow]
+        norm_num
+      · apply Asymptotics.isEquivalent_of_tendsto_one
+        rw [Pi.div_def]
+        field_simp
+        conv in _ / _ => rw [← Real.sqrt_div' _ (by positivity)]
+        rw [← Real.sqrt_one]
+        apply Filter.Tendsto.sqrt
+        simp_rw [add_div]
+        conv in 1 => rw [← add_zero (a := 1)]
+        apply Filter.Tendsto.add
+        · apply Filter.Tendsto.congr' (f₁ := fun x ↦ 1) _ (by aesop)
+          filter_upwards [eventually_gt_atTop 0] with n hn using by field_simp
+        · apply Filter.Tendsto.const_div_atTop
+          rw [Filter.tendsto_mul_const_atTop_iff_pos]
+          · positivity
+          exact tendsto_natCast_atTop_atTop
     · intro m n hm0 hmn
       apply mul_le_mul _ _ (by positivity) (by positivity)
       · rw [one_div_le_one_div (by aesop) (by aesop)]
-        push_cast; apply max_le_max_left; aesop
-        all_goals rw [Real.sqrt_pos]; apply Real.log_pos; simp
+        apply max_le_max_left; aesop
       · rw [one_div_le_one_div _ _]
         · apply Real.sqrt_le_sqrt
           apply add_le_add
           · apply Real.log_le_log (by positivity)
-            push_cast; apply max_le_max_left; aesop
+            apply max_le_max_left; aesop
           · apply Real.log_le_log (by positivity)
             rfl
         all_goals
         rw [Real.sqrt_pos]
-        apply (lt_add_of_nonneg_of_lt (by positivity))
+        apply (lt_add_of_nonneg_of_lt (by bound))
         exact Real.log_pos hlogc
