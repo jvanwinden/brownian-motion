@@ -18,6 +18,11 @@ open scoped ENNReal NNReal Topology BoundedContinuousFunction
 
 variable {T Ω E : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
 
+-- already upstreamed to mathlib
+theorem iIndep_of_iIndep_of_le {ι} {m₁ m₂ : ι → MeasurableSpace Ω}
+    (h_indep : iIndep m₂ P) (h_le : ∀ i, m₁ i ≤ m₂ i) : iIndep m₁ P :=
+  fun s t ht ↦ h_indep s fun i hi ↦ h_le i (t i) <| ht i hi
+
 lemma IsBrownian.upper_tail {X} (hX : IsBrownian X P) : ∃ C : ℝ≥0, ∀ (t : ℝ≥0) (c : ℝ) (hc : 0 ≤ c),
     P.real {ω | ⨆ s ≤ t, (X s ω).toEReal ≥ c}
       ≤ C * Real.sqrt (c^2 / (t : ℝ))⁻¹ * Real.exp (-1/2 * (c^2 / (t : ℝ))) := by
@@ -177,6 +182,7 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
     simp_rw [← EReal.coe_div, ← div_sub_div_same,
       EReal.coe_sub, Pi.add_def]
     norm_cast; aesop
+
   let g := fun x ↦ (2 * (x : ℝ).log.log).sqrt
 
   let A := fun n ↦ {ω | g (c ^ (n + 1)) ≤
@@ -196,8 +202,13 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
     replace hn := hn.out
     unfold f A g at *
     norm_cast; push_cast
-    rw [le_div_iff₀ (by sorry)] -- positivity of f
-    rw [le_div_iff₀ (Real.sqrt_pos_of_pos <| by sorry)] at hn -- easy positivity
+    rw [le_div_iff₀ ]; swap -- positivity of f
+    · apply Real.sqrt_pos_of_pos
+      apply mul_pos (by positivity)
+      apply Real.log_pos
+      rw [Real.log_pow]
+      bound
+    rw [le_div_iff₀ (Real.sqrt_pos_of_pos <| by rw [pow_add]; aesop)] at hn -- easy positivity
     convert hn using 1
     · rw [← Real.sqrt_mul (by bound)]
       rw [← Real.sqrt_mul' _ (by bound)]
@@ -207,23 +218,17 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
     · congr; rw [pow_add]; field_simp
   apply ProbabilityTheory.measure_limsup_eq_one (by measurability)
   all_goals unfold A
-  · simp_rw [le_div_iff₀ (Real.sqrt_pos_of_pos <| by sorry)] -- easy positivity
+  · conv in g _ ≤ _ => rw [le_div_iff₀ (Real.sqrt_pos_of_pos <| by rw [pow_add]; aesop)]
     rw [iIndepSet_iff_iIndep]
     have h' := hX.hasIndepIncrements
     rw [HasIndepIncrements.iff_increments_nat] at h'
     specialize h' (fun n ↦ c ^ n) _
     · apply pow_right_monotone <| le_of_lt <| by exact_mod_cast hc1
     rw [iIndepFun_iff_iIndep] at h'
-    -- We want to use `iIndep_of_iIndep_of_le` but we are behind Mathlib
-    sorry
-    -- have h_le : (n : ℕ) → generateFrom {(A n)} ≤
-    --   MeasurableSpace.comap (fun ω ↦ X (c ^ (n + 1)) ω - X (c ^ n) ω) Real.measurableSpace := by
-    --   -- this proof should be trivial...
-    --   intro n; unfold A
-    --   simp_rw [le_div_iff₀ (sorry)]
-    --   apply generateFrom_singleton_le <| measurableSet_le (by measurability) _
-    --   apply Measurable.of_comap_le (by rfl)
-    --exact fun s t ht ↦ h' s fun i hi ↦ h_le i (t i) <| ht i hi
+    apply iIndep_of_iIndep_of_le h' _
+    intro n
+    apply generateFrom_singleton_le <| measurableSet_le (by measurability) _
+    apply Measurable.of_comap_le (by rfl)
   conv in P _ =>
     rw [← MeasureTheory.ofReal_measureReal]
   simp_rw [← ENNReal.ofNNReal_toNNReal, ENNReal.tsum_coe_eq_top_iff_not_summable_coe,
