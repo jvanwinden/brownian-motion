@@ -163,114 +163,99 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
   lift c to ℝ≥0 using by positivity
   have hc0 : (0 < c) := by positivity [by exact_mod_cast hc1]
 
+
   suffices h : ∀ᵐ ω ∂P, (1 - 1 / (c : ℝ)).sqrt ≤
-      limsup (fun t ↦ ((X (c * t) ω - X t ω) / f (c * t)).toEReal) atTop by
+      limsup (fun t ↦ ((X t ω - X (t / c) ω) / f t).toEReal) atTop by
     have h' : ∀ᵐ ω ∂P,
-        limsup (fun t ↦ (-X t ω / f (c * t)).toEReal) atTop
+        limsup (fun t ↦ (-X (t / c) ω / f (t)).toEReal) atTop
           ≤ (1 / (c : ℝ).sqrt).toEReal := by
       sorry -- consequence of LIL_upper + scaling + symmetry
     filter_upwards [h, h'] with ω hω hω'
     simp_rw [neg_div, EReal.coe_neg, ← Pi.neg_def, EReal.limsup_neg, EReal.neg_le] at hω'
     grw [sub_eq_add_neg, (add_le_add hω hω'), EReal.le_limsup_add]
     apply le_of_eq
-    nth_rw 2 [← filter_atTop_atTop c hc0]
-    simp_rw [← Filter.limsup_comp, Function.comp_def, ← EReal.coe_div, ← div_sub_div_same,
+    simp_rw [← EReal.coe_div, ← div_sub_div_same,
       EReal.coe_sub, Pi.add_def]
     norm_cast; aesop
-  let A := fun n ↦ {ω | (1 - 1 / (c : ℝ)).sqrt ≤
-    (X (c ^ (n + 1)) ω - X (c ^ n) ω) / f (c ^ (n + 1))}
+  let g := fun x ↦ (2 * (x : ℝ).log.log).sqrt
+
+  let A := fun n ↦ {ω | g (c ^ (n + 1)) ≤
+    (X (c ^ (n + 1)) ω - X (c ^ n) ω) / Real.sqrt (c ^ (n + 1) - c ^ n)}
 
   suffices h : P (Filter.limsup A atTop) = 1 by
     rw [← MeasureTheory.mem_ae_iff_prob_eq_one <| by measurability] at h
     filter_upwards [h] with ω hω
     rw [Filter.mem_limsup_iff_frequently_mem] at hω
-    have htend : Tendsto (fun n : ℕ => c ^ n) atTop (atTop : Filter NNReal) :=
-      tendsto_pow_atTop_atTop_of_one_lt hc1
+    have htend : Tendsto (fun n : ℕ => c ^ (n + 1)) atTop (atTop : Filter NNReal) := by
+      simp_rw [pow_add]
+      apply Filter.Tendsto.atTop_mul_const (by positivity)
+      exact tendsto_pow_atTop_atTop_of_one_lt hc1
     apply le_limsup_of_frequently_le'
     apply Filter.Tendsto.frequently_map _ htend _ hω
     intro n hn
-    simpa [EReal.coe_le_coe_iff, mul_comm, pow_add, pow_one] using hn.out
+    replace hn := hn.out
+    unfold f A g at *
+    norm_cast; push_cast
+    rw [le_div_iff₀ (by sorry)] -- positivity of f
+    rw [le_div_iff₀ (Real.sqrt_pos_of_pos <| by sorry)] at hn -- easy positivity
+    convert hn using 1
+    · rw [← Real.sqrt_mul (by bound)]
+      rw [← Real.sqrt_mul' _ (by bound)]
+      congr 1
+      simp_rw [pow_add]
+      field_simp
+    · congr; rw [pow_add]; field_simp
   apply ProbabilityTheory.measure_limsup_eq_one (by measurability)
   all_goals unfold A
-  · rw [iIndepSet_iff_iIndep]
+  · simp_rw [le_div_iff₀ (Real.sqrt_pos_of_pos <| by sorry)] -- easy positivity
+    rw [iIndepSet_iff_iIndep]
     have h' := hX.hasIndepIncrements
     rw [HasIndepIncrements.iff_increments_nat] at h'
     specialize h' (fun n ↦ c ^ n) _
     · apply pow_right_monotone <| le_of_lt <| by exact_mod_cast hc1
     rw [iIndepFun_iff_iIndep] at h'
-    have h_le : (n : ℕ) → generateFrom {(A n)} ≤
-        MeasurableSpace.comap (fun ω ↦ X (c ^ (n + 1)) ω - X (c ^ n) ω) Real.measurableSpace := by
-      -- this proof should be trivial...
-      intro n; unfold A
-      by_cases! hf : 0 < f (c ^ (n + 1))
-      · simp_rw [le_div_iff₀ hf]
-        apply generateFrom_singleton_le <| measurableSet_le (by measurability) _
-        apply Measurable.of_comap_le (by rfl)
-      · simp [le_antisymm hf (by positivity)]
-    -- the line below can be replaced by `iIndep_of_iIndep_of_le`
-    exact fun s t ht ↦ h' s fun i hi ↦ h_le i (t i) <| ht i hi
-  -- convert tsum_eq_top to ¬Summable
+    -- We want to use `iIndep_of_iIndep_of_le` but we are behind Mathlib
+    sorry
+    -- have h_le : (n : ℕ) → generateFrom {(A n)} ≤
+    --   MeasurableSpace.comap (fun ω ↦ X (c ^ (n + 1)) ω - X (c ^ n) ω) Real.measurableSpace := by
+    --   -- this proof should be trivial...
+    --   intro n; unfold A
+    --   simp_rw [le_div_iff₀ (sorry)]
+    --   apply generateFrom_singleton_le <| measurableSet_le (by measurability) _
+    --   apply Measurable.of_comap_le (by rfl)
+    --exact fun s t ht ↦ h' s fun i hi ↦ h_le i (t i) <| ht i hi
   conv in P _ =>
     rw [← MeasureTheory.ofReal_measureReal]
   simp_rw [← ENNReal.ofNNReal_toNNReal, ENNReal.tsum_coe_eq_top_iff_not_summable_coe,
     Real.coe_toNNReal (r := P.real _) (by positivity)]
 
-  let g := fun n : ℕ ↦ (2 * (c ^ n : ℝ).log.log).sqrt
+  --let g := fun n : ℕ ↦ g' (c ^ n)
   have h'' : Tendsto (fun n : ℕ ↦ Real.log (c ^ n)) atTop atTop := by
     simp_rw [Real.log_pow]
     apply Filter.Tendsto.atTop_mul_const (by bound)
     apply tendsto_natCast_atTop_atTop
-  have hg : Tendsto (fun n ↦ g (max 1 n)) atTop atTop := by
+  have hg : Tendsto (fun n ↦ g (c ^ max 1 n)) atTop atTop := by
     apply Real.tendsto_sqrt_atTop.comp
     apply Filter.Tendsto.const_mul_atTop (by norm_num)
     apply Real.tendsto_log_atTop.comp
     apply Real.tendsto_log_atTop.comp
     apply tendsto_pow_atTop_atTop_of_one_lt hc1 |>.congr'
     exact eventually_ge_atTop 1|>.mono <| fun _ hn ↦ by simp [max_eq_right hn]
-
   -- rewrite in terms of a standard normal
-  suffices h : ¬(Summable (fun n ↦ P.real {ω | g (max 1 n) ≤ X 1 ω})) by
+  suffices h : ¬(Summable (fun n ↦ P.real {ω | g (c ^ (max 1 n)) ≤ X 1 ω})) by
     -- shift index
     rw [← summable_nat_add_iff 1 (G := ℝ)] at h
     convert h using 2
     funext n
-    have h' : ∀ x, √(1 - 1 / c : ℝ) ≤ x / f (c ^ (n + 1)) ↔
-        g (n + 1) ≤ x / (c ^ (n + 1) - c ^ n : ℝ).sqrt := by
-      intro x
-      unfold f
-      conv in 2 * _ => rw [mul_comm]
-      rw [mul_assoc, Real.sqrt_mul (by positivity)]
-      push_cast
-      rw [le_div_iff₀]; swap
-      · apply mul_pos
-        · rw [Real.sqrt_pos]
-          bound
-        · rw [Real.sqrt_pos]
-          apply mul_pos (by bound)
-          apply Real.log_pos
-          simp_rw [Real.log_pow]
-          bound
-      rw [le_div_iff₀ (?_)]; swap -- positivity (of elementary function)
-      · rw [Real.sqrt_pos, sub_pos, pow_lt_pow_iff_right₀ (by bound)]
-        bound
-      rw [← mul_assoc, mul_comm]
-      rw [← Real.sqrt_mul' _ (by bound)]
-      rw [sub_mul]
-      apply iff_of_eq
-      congr 4
-      · simp
-      · rw [pow_add]
-        field_simp
-    simp_rw [h']
+    rw [max_eq_right (by bound)]
     rw [Measure.real_def, Measure.real_def]
     rw [ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)]
     apply ProbabilityTheory.IdentDistrib.measure_mem_eq _
-      (by measurability : MeasurableSet (Set.Ici (g (n + 1))))
+      (by measurability : MeasurableSet (Set.Ici (g (c ^ (n + 1)))))
     -- we would like to use `hasLaw.identDistrib` but we are behind mathlib
     sorry -- identical distribution
-
   rw [← IsEquivalent.summable_iff_nat
-      (f := fun n ↦ (1 / (g (max 1 n))) * (-1/2 * (g (max 1 n)) ^ 2).exp)]; swap
+      (f := fun n ↦ (1 / (g (c ^ (max 1 n)))) * (-1/2 * (g (c ^ (max 1 n))) ^ 2).exp)]; swap
   · -- asymptotic equivalence
     exact ((IsStandardGaussian.tail <| hX.hasLaw_eval 1).comp_tendsto hg).symm
   · -- prove non-summability of elementary function
