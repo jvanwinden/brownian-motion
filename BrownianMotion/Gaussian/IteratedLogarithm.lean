@@ -18,6 +18,7 @@ open scoped ENNReal NNReal Topology BoundedContinuousFunction
 
 variable {T Ω E : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
 
+-- todo: generalize and upstream?
 theorem EReal.limsup_const_mul {α : Type u_1} {f : Filter α}
     {u : α → EReal} {a : EReal} (h₁ : 0 < a) (h₂ : a ≠ ⊤) :
     Filter.limsup (fun x => a * u x) f = a * Filter.limsup u f := by
@@ -46,7 +47,9 @@ theorem hasLaw.identDistrib {α β γ} {f : α → γ} {g : β → γ}
   ⟨h₀.aemeasurable, h₁.aemeasurable, by simp [h₀.map_eq, h₁.map_eq]⟩
 
 lemma IsBrownian.neg {X} (hX : IsBrownian X P) :
-    IsBrownian (fun t ω ↦ -(X t ω)) P := by
+    IsBrownian (-X) P := by
+  -- want to use `ProbabilityTheory.gaussianReal_neg`
+  -- but there are universe issues (fixed in upstream mathlib)
   sorry
 
 lemma IsBrownian.upper_tail {X} (hX : IsBrownian X P) : ∃ C : ℝ≥0, ∀ (t : ℝ≥0) (c : ℝ) (hc : 0 ≤ c),
@@ -55,7 +58,8 @@ lemma IsBrownian.upper_tail {X} (hX : IsBrownian X P) : ∃ C : ℝ≥0, ∀ (t 
   sorry
 
 lemma IsBrownian.reflection {X} (hX : IsBrownian X P) (t : ℝ≥0) (c : ℝ) (hc : 0 < c)
-    : P {ω | c ≤ ⨆ s ≤ t, (X s ω).toEReal} = 2 * P {ω | c ≤ X t ω} := sorry
+    : P {ω | c ≤ ⨆ s ≤ t, (X s ω).toEReal} = 2 * P {ω | c ≤ X t ω} :=
+  sorry -- needs strong Markov property
 
 lemma IsStandardGaussian.tail {X} (hX : HasLaw X (gaussianReal 0 1) P) :
     Asymptotics.IsEquivalent atTop (fun x ↦ P.real {ω | x ≤ X ω})
@@ -279,7 +283,11 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
       (by measurability : MeasurableSet (Set.Ici (g (c ^ (n + 1)))))
     apply hasLaw.identDistrib _ (hX.hasLaw_eval 1)
     -- need scalar multiplication for hasLaw, then apply hasLaw_preBrownian_sub
-    sorry -- determine law of `X (c ^ (n + 1)) - X (c ^ n)`
+    simp_rw [div_eq_mul_inv]
+    -- want to use `ProbabilityTheory.gaussianReal_mul_const`
+    -- but there are universe errors (fixed in upstream mathlib)
+    -- use `IsBrownian.hasLaw_sub`
+    sorry
   -- apply limit comparison test
   rw [← IsEquivalent.summable_iff_nat
       (f := fun n ↦ (1 / (g (c ^ (max 1 n)))) * (-1/2 * (g (c ^ (max 1 n))) ^ 2).exp)]; swap
