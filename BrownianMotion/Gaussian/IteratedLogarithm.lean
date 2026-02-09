@@ -18,6 +18,21 @@ open scoped ENNReal NNReal Topology BoundedContinuousFunction
 
 variable {T Ω E : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
 
+theorem EReal.limsup_const_mul {α : Type u_1} {f : Filter α}
+    {u : α → EReal} {a : EReal} (h₁ : 0 < a) (h₂ : a ≠ ⊤) :
+    Filter.limsup (fun x => a * u x) f = a * Filter.limsup u f := by
+  simp_rw [mul_comm (a := a)]
+  apply eq_of_le_of_ge
+  · rw [Filter.limsup_le_iff]
+    intro r hr
+    rw [gt_iff_lt] at hr
+    simp_rw [← EReal.lt_div_iff (by aesop) (by aesop)] at hr ⊢
+    apply Filter.eventually_lt_of_limsup_lt (hu := by isBoundedDefault) hr
+  · rw [Filter.le_limsup_iff]
+    intro r hr
+    simp_rw [← EReal.div_lt_iff (by aesop) (by aesop)] at hr ⊢
+    apply Filter.frequently_lt_of_lt_limsup (hu := by isBoundedDefault) hr
+
 -- already upstreamed to mathlib
 theorem iIndep_of_iIndep_of_le {ι} {m₁ m₂ : ι → MeasurableSpace Ω}
     (h_indep : iIndep m₂ P) (h_le : ∀ i, m₁ i ≤ m₂ i) : iIndep m₁ P :=
@@ -29,6 +44,10 @@ theorem hasLaw.identDistrib {α β γ} {f : α → γ} {g : β → γ}
     {μ : Measure α} {ν : Measure β} {κ : Measure γ} (h₀ : HasLaw f κ μ)
     (h₁ : HasLaw g κ ν) : IdentDistrib f g μ ν :=
   ⟨h₀.aemeasurable, h₁.aemeasurable, by simp [h₀.map_eq, h₁.map_eq]⟩
+
+lemma IsBrownian.neg {X} (hX : IsBrownian X P) :
+    IsBrownian (fun t ω ↦ -(X t ω)) P := by
+  sorry
 
 lemma IsBrownian.upper_tail {X} (hX : IsBrownian X P) : ∃ C : ℝ≥0, ∀ (t : ℝ≥0) (c : ℝ) (hc : 0 ≤ c),
     P.real {ω | ⨆ s ≤ t, (X s ω).toEReal ≥ c}
@@ -181,7 +200,21 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
     have h' : ∀ᵐ ω ∂P,
         limsup (fun t ↦ (-X (t / c) ω / f (t)).toEReal) atTop
           ≤ (1 / (c : ℝ).sqrt).toEReal := by
-      sorry -- consequence of LIL_upper + scaling + symmetry
+      convert IsBrownian.LIL_upper (X := fun t ω ↦ (c : ℝ).sqrt * (-X (t / c) ω)) using 1
+      · funext ω
+        simp_rw [← mul_div, EReal.coe_mul]
+        rw [EReal.limsup_const_mul (by positivity) (by aesop)]
+        rw [mul_comm, ← EReal.le_div_iff_mul_le (by positivity) (by aesop)]
+        congr
+      · infer_instance
+      · have hnegX : IsBrownian (fun t ω ↦ - X t ω) P := IsBrownian.neg hX
+        have hsX := hnegX.smul (c := (1 / c)) (by positivity)
+        convert hsX using 2
+        funext ω
+        field_simp
+        congr 1
+        rw [mul_assoc, mul_comm, mul_assoc, ← Real.sqrt_mul (by positivity)]
+        push_cast; field_simp; norm_num
     filter_upwards [h, h'] with ω hω hω'
     simp_rw [neg_div, EReal.coe_neg, ← Pi.neg_def, EReal.limsup_neg, EReal.neg_le] at hω'
     grw [sub_eq_add_neg, (add_le_add hω hω'), EReal.le_limsup_add]
@@ -245,6 +278,7 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
     apply ProbabilityTheory.IdentDistrib.measure_mem_eq _
       (by measurability : MeasurableSet (Set.Ici (g (c ^ (n + 1)))))
     apply hasLaw.identDistrib _ (hX.hasLaw_eval 1)
+    -- need scalar multiplication for hasLaw, then apply hasLaw_preBrownian_sub
     sorry -- determine law of `X (c ^ (n + 1)) - X (c ^ n)`
   -- apply limit comparison test
   rw [← IsEquivalent.summable_iff_nat
