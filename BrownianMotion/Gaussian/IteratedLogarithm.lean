@@ -79,13 +79,22 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
   -- Introduce notation
   let M := fun t ω ↦ (⨆ s ≤ t, (X s ω : EReal))
   let f := fun (t : ℝ≥0) ↦ (2 * t * (t : ℝ).log.log).sqrt
+  -- Elementary function properties
   have loglog_atTop : Filter.Tendsto (fun t : ℝ≥0 ↦ (t : ℝ).log.log) atTop atTop := by
-    rw [← Function.comp_def]
-    repeat apply Filter.Tendsto.comp Real.tendsto_log_atTop
-    simp [Filter.Tendsto]
+    repeat apply Real.tendsto_log_atTop.comp
+    exact NNReal.tendsto_coe_atTop.mpr Filter.tendsto_id
+  have fmono : MonotoneOn f (Set.Ici (⟨(Real.exp 1),by positivity⟩)) := by
+    intro x hx y hy hxy
+    have hx0 : (0 < x) := by apply lt_of_lt_of_le (Real.exp_pos _) hx
+    have hx1 : (1 ≤ Real.log x) := by
+      rwa [← Real.exp_le_exp, Real.exp_log (by positivity)]
+    apply Real.sqrt_le_sqrt
+    apply mul_le_mul (by bound) _ (Real.log_nonneg hx1) (by bound)
+    apply Real.log_le_log (by positivity)
+    apply Real.log_le_log hx0 hxy
   -- Rewrite limsup inequality in terms of quantifiers which do not depend on `ω`
   simp_rw [ae_le_const_iff_forall_gt_measure_zero, ← not_lt, ← ae_iff]
-  suffices h : ∀ (c : ℝ≥0), 1 < (c : ℝ) → ∀ᵐ (ω : Ω) ∂P, ∀ᶠ (t : ℝ≥0) in atTop,
+  suffices h : ∀ c : ℝ≥0, 1 < c → ∀ᵐ (ω : Ω) ∂P, ∀ᶠ (t : ℝ≥0) in atTop,
       X t ω < c * f t by
     intro _ hc
     rcases EReal.lt_iff_exists_real_btwn.mp hc with ⟨b,hb⟩
@@ -102,22 +111,27 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
     filter_upwards [h] with ω hω
     choose n htn1 htn2 using
       fun t ↦ exists_nat_pow_near (x := max 1 t) (y := c) (by bound) (by bound)
-    have h_tt1 : Filter.Tendsto (fun t ↦ n t) atTop atTop := sorry -- elementary limit
+    have h_tt1 : Filter.Tendsto (fun t ↦ n t) atTop atTop := by
+      apply Filter.Tendsto.atTop_of_add_const 1
+      rw [Filter.tendsto_atTop]; intro m
+      filter_upwards [eventually_ge_atTop 1, eventually_ge_atTop (c ^ m)] with t ht1 ht2
+      specialize htn2 t
+      rw [max_eq_right ht1] at htn2
+      rw [← pow_le_pow_iff_right₀ (hc)]
+      apply le_of_lt <| lt_of_le_of_lt ht2 htn2
     have h_tt2 := (tendsto_pow_atTop_atTop_of_one_lt hc).comp h_tt1
     filter_upwards [h_tt1.eventually hω, eventually_ge_atTop 1,
-      h_tt2.eventually_ge_atTop (Real.exp 1)] with t ht ht1 htn3
+      h_tt2.eventually_ge_atTop ⟨(Real.exp 1),by positivity⟩] with t ht ht1 htn3
     specialize htn1 t
     specialize htn2 t
     rw [max_eq_right ht1] at htn1 htn2
-    have h1 : X t ω ≤ M (c ^ (n t + 1)) ω := by
-      apply le_iSup_of_le t <| le_iSup_of_le (by bound) (by rfl)
-    have h2 : M (c ^ (n t + 1)) ω < ↑(↑c * f (c ^ (n t))) := by
-      simpa using ht
-    have h3 : (↑c * f (c ^ (n t))) ≤ (c : ℝ) * (f t) := by
-      sorry -- eventual monotonicity
-    rw [← EReal.coe_lt_coe_iff]
-    grw [h1]
-    apply lt_of_lt_of_le h2 (by exact_mod_cast h3)
+    exact_mod_cast calc
+      X t ω ≤ M (c ^ (n t + 1)) ω := by
+        apply le_iSup_of_le t <| le_iSup_of_le (by bound) (by rfl)
+      _ < (c * f (c ^ (n t))) := by simpa using ht
+      _ ≤ (c : ℝ) * (f t) := by
+        apply mul_le_mul_of_nonneg_left _ <| le_of_lt <| by positivity
+        apply EReal.coe_le_coe <| fmono htn3 (le_trans htn3 htn1) htn1
   apply ae_eventually_notMem
   conv in (P _) => rw [← MeasureTheory.ofReal_measureReal]
   apply Summable.tsum_ofReal_ne_top
