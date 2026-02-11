@@ -86,7 +86,7 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
   -- Rewrite limsup inequality in terms of quantifiers which do not depend on `ω`
   simp_rw [ae_le_const_iff_forall_gt_measure_zero, ← not_lt, ← ae_iff]
   suffices h : ∀ (c : ℝ≥0), 1 < (c : ℝ) → ∀ᵐ (ω : Ω) ∂P, ∀ᶠ (t : ℝ≥0) in atTop,
-      X t ω ≤ c * f t by
+      X t ω < c * f t by
     intro _ hc
     rcases EReal.lt_iff_exists_real_btwn.mp hc with ⟨b,hb⟩
     lift b to ℝ≥0 using by positivity [by exact_mod_cast hb.1]
@@ -94,46 +94,31 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
     apply lt_of_le_of_lt _ hb.2
     apply limsup_le_of_le (hf := by isBoundedDefault)
     filter_upwards [hω] with t ht
-    exact EReal.coe_le_coe <| div_le_of_le_mul₀ (by positivity) (by positivity) ht
+    apply EReal.coe_le_coe <| div_le_of_le_mul₀ (by positivity) (by positivity) _
+    exact le_of_lt ht
   intro c hc
   -- Prepare for application of Borel-Cantellli
-  suffices h : ∀ᵐ ω ∂P, {n : ℕ | c * f (c ^ n) < M (c^(n+1)) ω}.Finite by
+  suffices h : ∀ᵐ ω ∂P, ∀ᶠ n : ℕ in atTop, ω ∉ {ω | c * f (c ^ n) ≤ M (c^(n+1)) ω} by
     filter_upwards [h] with ω hω
-    rcases (bddAbove_def.1 hω.bddAbove) with ⟨N,hN⟩
-    replace hN := fun x ↦ (hN x).mt
-    simp only [not_le, Set.mem_setOf_eq, not_lt] at hN
-    have h'' := tendsto_pow_atTop_atTop_of_one_lt hc
-    filter_upwards [eventually_ge_atTop 1, eventually_ge_atTop (c^(N+1)),
-      eventually_ge_atTop (c * ⟨Real.exp 1,_⟩ : ℝ≥0)] with t ht1 ht htce
-    rcases exists_nat_pow_near ht1 hc with ⟨n,hn1,hn2⟩
-    have hcn : Real.exp 1 ≤ (c ^ n) := by
-      trans t / c
-      · rw [le_div_iff₀ (by positivity), mul_comm]
-        exact_mod_cast htce
-      · rw [div_le_iff₀ (by positivity)]
-        bound
-    exact_mod_cast calc
-      X t ω ≤ M (c^(n+1)) ω := le_iSup_of_le t <| le_iSup_of_le (by bound) (by rfl)
-      _ ≤ c * f (c^n) := by
-        apply hN n
-        rify
-        apply lt_of_add_lt_add_right (a := 1)
-        rw [←Real.rpow_lt_rpow_left_iff hc]
-        exact_mod_cast lt_of_le_of_lt ht hn2
-      _ ≤ (c : ℝ) * (f t) := by
-        -- f is (eventually) monotone
-        apply mul_le_mul (by rfl) _ (by positivity) (by positivity)
-        apply EReal.coe_le_coe (Real.sqrt_le_sqrt _)
-        push_cast
-        apply mul_le_mul (mul_le_mul (by bound) (by bound) (by positivity) (by positivity))
-          _ _ (by positivity)
-        · apply Real.log_le_log (Real.log_pos _) (Real.log_le_log (by positivity) (by bound))
-          exact lt_of_lt_of_le (by bound) hcn
-        · apply Real.log_nonneg
-          rw [← Real.exp_le_exp, Real.exp_log (by positivity)]
-          exact hcn
-  -- Apply Borel-Cantelli and rewrite to an asymptotic bound
-  apply ae_finite_setOf_mem (s := fun n : ℕ ↦ {ω | c * f (c ^ n) < M (c^(n+1)) ω})
+    choose n htn1 htn2 using
+      fun t ↦ exists_nat_pow_near (x := max 1 t) (y := c) (by bound) (by bound)
+    have h_tt1 : Filter.Tendsto (fun t ↦ n t) atTop atTop := sorry -- elementary limit
+    have h_tt2 := (tendsto_pow_atTop_atTop_of_one_lt hc).comp h_tt1
+    filter_upwards [h_tt1.eventually hω, eventually_ge_atTop 1,
+      h_tt2.eventually_ge_atTop (Real.exp 1)] with t ht ht1 htn3
+    specialize htn1 t
+    specialize htn2 t
+    rw [max_eq_right ht1] at htn1 htn2
+    have h1 : X t ω ≤ M (c ^ (n t + 1)) ω := by
+      apply le_iSup_of_le t <| le_iSup_of_le (by bound) (by rfl)
+    have h2 : M (c ^ (n t + 1)) ω < ↑(↑c * f (c ^ (n t))) := by
+      simpa using ht
+    have h3 : (↑c * f (c ^ (n t))) ≤ (c : ℝ) * (f t) := by
+      sorry -- eventual monotonicity
+    rw [← EReal.coe_lt_coe_iff]
+    grw [h1]
+    apply lt_of_lt_of_le h2 (by exact_mod_cast h3)
+  apply ae_eventually_notMem
   conv in (P _) => rw [← MeasureTheory.ofReal_measureReal]
   apply Summable.tsum_ofReal_ne_top
   apply summable_of_isBigO (Real.summable_nat_rpow_inv.2 hc)
@@ -145,8 +130,7 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
   -- Apply Gaussian tail bound and simplify
   repeat rw [Real.norm_of_nonneg (by positivity)]
   -- is there a better way to stick 'a ≤ b' in the middle?
-  refine le_trans ?_ <| ((h' (c ^ (n + 1)) (c * f (c ^ n)) (by positivity)).trans ?_)
-  · exact measureReal_mono (fun _ hω ↦ le_of_lt hω.out) (by finiteness)
+  apply le_trans (h' (c ^ (n + 1)) (c * f (c ^ n)) (by positivity)) _
   have hfrac : (c * f (c^n))^2 / ((c ^ (n+1)) : ℝ≥0) = 2 * c * (c ^ n : ℝ).log.log := by
     push_cast
     apply div_eq_of_eq_mul (by positivity)
