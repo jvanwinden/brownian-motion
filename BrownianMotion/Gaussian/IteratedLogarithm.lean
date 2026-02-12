@@ -16,7 +16,7 @@ open MeasureTheory NNReal WithLp Finset MeasurableSpace Filtration Filter
 open ProbabilityTheory
 open scoped ENNReal NNReal Topology BoundedContinuousFunction
 
-variable {T Ω E : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
 
 -- todo: generalize and upstream?
 theorem EReal.limsup_const_mul {α : Type u_1} {f : Filter α}
@@ -365,7 +365,10 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
         · positivity
         exact tendsto_natCast_atTop_atTop
 
-lemma IsBrownian.LIL (h_meas : ∀ t, Measurable (X t)) :
+lemma IsBrownian.iterated_logarithm (h_meas : ∀ t, Measurable (X t)) :
     ∀ᵐ ω ∂P, limsup (fun t ↦ (X t ω) / (2 * t * (t : ℝ).log.log).sqrt : ℝ≥0 → EReal) atTop = 1 := by
   filter_upwards [IsBrownian.LIL_upper X, IsBrownian.LIL_lower X h_meas] with ω hω1 hω2
   exact eq_of_le_of_ge hω1 hω2
+
+set_option pp.universes false in
+#check IsBrownian.iterated_logarithm
