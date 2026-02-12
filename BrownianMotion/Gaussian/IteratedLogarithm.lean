@@ -52,13 +52,8 @@ lemma IsBrownian.neg {X} (hX : IsBrownian X P) :
   -- but there are universe issues (fixed in upstream mathlib)
   sorry
 
-lemma IsBrownian.upper_tail {X} (hX : IsBrownian X P) : ∃ C : ℝ≥0, ∀ (t : ℝ≥0) (c : ℝ) (hc : 0 ≤ c),
-    P.real {ω | ⨆ s ≤ t, (X s ω).toEReal ≥ c}
-      ≤ C * Real.sqrt (c^2 / (t : ℝ))⁻¹ * Real.exp (-1/2 * (c^2 / (t : ℝ))) := by
-  sorry
-
-lemma IsBrownian.reflection {X} (hX : IsBrownian X P) (t : ℝ≥0) (c : ℝ) (hc : 0 < c)
-    : P {ω | c ≤ ⨆ s ≤ t, (X s ω).toEReal} = 2 * P {ω | c ≤ X t ω} :=
+lemma IsBrownian.reflection {X t} {c : ℝ} (hX : IsBrownian X P) (ht : 0 < t) (hc : 0 ≤ c)
+    : P.real {ω | c ≤ ⨆ s ≤ t, (X s ω).toEReal} = 2 * P.real {ω | c ≤ X t ω} :=
   sorry -- needs strong Markov property
 
 lemma IsStandardGaussian.tail {X} (hX : HasLaw X (gaussianReal 0 1) P) :
@@ -107,8 +102,9 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
     exact le_of_lt ht
   intro c hc
   -- Prepare for application of Borel-Cantellli
-  suffices h : ∀ᵐ ω ∂P, ∀ᶠ n : ℕ in atTop, ω ∉ {ω | c * f (c ^ n) ≤ M (c^(n+1)) ω} by
+  suffices h : ∀ᵐ ω ∂P, ∀ᶠ n : ℕ in atTop, ω ∉ {ω | (c : ℝ) * f (c ^ n) ≤ M (c ^ (n+1)) ω} by
     filter_upwards [h] with ω hω
+    -- Make a function which relates t to n
     choose n htn1 htn2 using
       fun t ↦ exists_nat_pow_near (x := max 1 t) (y := c) (by bound) (by bound)
     have h_tt1 : Filter.Tendsto (fun t ↦ n t) atTop atTop := by
@@ -133,38 +129,42 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
         apply mul_le_mul_of_nonneg_left _ <| le_of_lt <| by positivity
         apply EReal.coe_le_coe <| fmono htn3 (le_trans htn3 htn1) htn1
   apply ae_eventually_notMem
-  conv in (P _) => rw [← MeasureTheory.ofReal_measureReal]
+  conv in P _ => rw [← MeasureTheory.ofReal_measureReal]
+  conv in P.real _ => rw [← EReal.coe_mul, IsBrownian.reflection hX (by positivity) (by positivity)]
   apply Summable.tsum_ofReal_ne_top
-  apply summable_of_isBigO (Real.summable_nat_rpow_inv.2 hc)
-  rw [Nat.cofinite_eq_atTop]
-  rcases (IsBrownian.upper_tail hX) with ⟨C,h'⟩
-  apply Asymptotics.IsBigO.of_bound <| C * ((Real.log c) ^ (c : ℝ))⁻¹
+  rw [summable_mul_left_iff (by norm_num)]
+  unfold f
+
+  apply Summable.congr -- possibly change to congr_atTop?
+    (f := fun n ↦ P.real {ω | (2 * c * ((c : ℝ) ^ n).log.log).sqrt ≤ X 1 ω}); swap
+  · intro n
+    sorry
+  apply summable_of_isBigO_nat <| Real.summable_nat_rpow_inv.2 hc
+  have h₀ : Filter.Tendsto (fun (n : ℕ) ↦
+    √(2 * ↑c * Real.log (Real.log (↑c ^ n)))) atTop atTop := sorry
+  have h' := (IsStandardGaussian.tail (hX.hasLaw_eval 1)).comp_tendsto h₀
+  apply Asymptotics.IsEquivalent.trans_isBigO h' _
+  apply Asymptotics.IsBigO.of_bound <| 1 * ((Real.log c) ^ (c : ℝ))⁻¹
   filter_upwards [(loglog_atTop.comp <| tendsto_pow_atTop_atTop_of_one_lt hc).eventually_ge_atTop 1,
-    eventually_ge_atTop 1] with n hll1 instHashableInt16
-  -- Apply Gaussian tail bound and simplify
+     eventually_ge_atTop 1] with n hll1 instHashableInt16
+  simp_rw [Function.comp_def]
   repeat rw [Real.norm_of_nonneg (by positivity)]
-  -- is there a better way to stick 'a ≤ b' in the middle?
-  apply le_trans (h' (c ^ (n + 1)) (c * f (c ^ n)) (by positivity)) _
-  have hfrac : (c * f (c^n))^2 / ((c ^ (n+1)) : ℝ≥0) = 2 * c * (c ^ n : ℝ).log.log := by
-    push_cast
-    apply div_eq_of_eq_mul (by positivity)
-    simp_rw [mul_pow, pow_add]
-    rw [Real.sq_sqrt (by positivity)]
-    field_simp; rfl
-  simp_rw [hfrac]
-  -- Show elementary inequality
-  conv => rhs; rw [mul_assoc]
-  apply mul_le_mul _ _ (by positivity) (by positivity)
-  · apply mul_le_of_le_one_right (by positivity)
-    rw [Real.sqrt_le_one, inv_le_one₀ (by positivity)]
-    bound
-  · field_simp
+  conv_rhs => rw [mul_assoc]
+  apply mul_le_mul _ _ (by positivity) (by norm_num)
+  · rw [one_div_le _ (by norm_num)]; swap
+    · sorry
+    · sorry
+  · apply le_of_eq
+    rw [Real.sq_sqrt]; swap
+    · sorry
+    field_simp
     conv in Real.exp _ => rw [mul_comm]
-    rw [Real.exp_neg, Real.exp_mul, Real.exp_log, Real.log_pow]
-    · rw [Real.mul_rpow (by positivity) <| le_of_lt <| Real.log_pos hc, mul_inv]
-      field_simp; rfl
+    rw [Real.exp_neg, Real.exp_mul, Real.exp_log, Real.log_pow]; swap
     · rw [Real.log_pow]
       positivity [Real.log_pos hc]
+    rw [Real.mul_rpow (by positivity) _]; swap
+    · exact Real.log_nonneg <| le_of_lt hc
+    field_simp; rfl
 
 lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
     ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / (2 * t * (t : ℝ).log.log).sqrt : ℝ≥0 → EReal) atTop := by
