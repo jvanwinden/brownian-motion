@@ -74,10 +74,6 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
   -- Introduce notation
   let M := fun t ω ↦ (⨆ s ≤ t, (X s ω : EReal))
   let f := fun (t : ℝ≥0) ↦ (2 * t * (t : ℝ).log.log).sqrt
-  -- Elementary function properties
-  have loglog_atTop : Filter.Tendsto (fun t : ℝ≥0 ↦ (t : ℝ).log.log) atTop atTop := by
-    repeat apply Real.tendsto_log_atTop.comp
-    exact NNReal.tendsto_coe_atTop.mpr Filter.tendsto_id
   have fmono : MonotoneOn f (Set.Ici (⟨(Real.exp 1),by positivity⟩)) := by
     intro x hx y hy hxy
     have hx0 : (0 < x) := by apply lt_of_lt_of_le (Real.exp_pos _) hx
@@ -102,7 +98,7 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
     exact le_of_lt ht
   intro c hc
   -- Prepare for application of Borel-Cantellli
-  suffices h : ∀ᵐ ω ∂P, ∀ᶠ n : ℕ in atTop, ω ∉ {ω | (c : ℝ) * f (c ^ n) ≤ M (c ^ (n+1)) ω} by
+  suffices h : ∀ᵐ ω ∂P, ∀ᶠ n : ℕ in atTop, ω ∉ {ω | (c : ℝ) * f (c ^ n) ≤ M (c ^ (n + 1)) ω} by
     filter_upwards [h] with ω hω
     -- Make a function which relates t to n
     choose n htn1 htn2 using
@@ -134,29 +130,35 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
   apply Summable.tsum_ofReal_ne_top
   rw [summable_mul_left_iff (by norm_num)]
   unfold f
-
-  apply Summable.congr -- possibly change to congr_atTop?
-    (f := fun n ↦ P.real {ω | (2 * c * ((c : ℝ) ^ n).log.log).sqrt ≤ X 1 ω}); swap
+  -- introduce auxiliary function g and show limit at infinity
+  let g := fun n : ℕ ↦ (2 * c * ((c : ℝ) ^ n).log.log).sqrt
+  have hg_tt : Filter.Tendsto g atTop atTop := by
+    apply Real.tendsto_sqrt_atTop.comp
+    apply Filter.Tendsto.const_mul_atTop (by positivity)
+    repeat apply Real.tendsto_log_atTop.comp
+    exact tendsto_pow_atTop_atTop_of_one_lt hc
+  -- convert to a standard Gaussian
+  -- possibly change to congr_atTop if needed
+  apply Summable.congr (f := fun n ↦ P.real {ω | g n ≤ X 1 ω}); swap
   · intro n
+    -- show equivalence by switching the law
     sorry
   apply summable_of_isBigO_nat <| Real.summable_nat_rpow_inv.2 hc
-  have h₀ : Filter.Tendsto (fun (n : ℕ) ↦
-    √(2 * ↑c * Real.log (Real.log (↑c ^ n)))) atTop atTop := sorry
-  have h' := (IsStandardGaussian.tail (hX.hasLaw_eval 1)).comp_tendsto h₀
+  -- apply Gaussian tail estimate
+  have h' := (IsStandardGaussian.tail (hX.hasLaw_eval 1)).comp_tendsto hg_tt
   apply Asymptotics.IsEquivalent.trans_isBigO h' _
+  -- reduce to concrete bound
   apply Asymptotics.IsBigO.of_bound <| 1 * ((Real.log c) ^ (c : ℝ))⁻¹
-  filter_upwards [(loglog_atTop.comp <| tendsto_pow_atTop_atTop_of_one_lt hc).eventually_ge_atTop 1,
-     eventually_ge_atTop 1] with n hll1 instHashableInt16
+  filter_upwards [hg_tt.eventually_ge_atTop 1, eventually_ge_atTop 1] with n hg1 hn
   simp_rw [Function.comp_def]
   repeat rw [Real.norm_of_nonneg (by positivity)]
   conv_rhs => rw [mul_assoc]
   apply mul_le_mul _ _ (by positivity) (by norm_num)
   · rw [one_div_le _ (by norm_num)]; swap
-    · sorry
-    · sorry
-  · apply le_of_eq
-    rw [Real.sq_sqrt]; swap
-    · sorry
+    · bound
+    · bound
+  · rw [Real.sq_sqrt]; swap
+    · positivity [Real.one_le_sqrt.mp hg1]
     field_simp
     conv in Real.exp _ => rw [mul_comm]
     rw [Real.exp_neg, Real.exp_mul, Real.exp_log, Real.log_pow]; swap
@@ -349,3 +351,8 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
         rw [Filter.tendsto_mul_const_atTop_iff_pos]
         · positivity
         exact tendsto_natCast_atTop_atTop
+
+lemma IsBrownian.LIL (h_meas : ∀ t, Measurable (X t)) :
+    ∀ᵐ ω ∂P, limsup (fun t ↦ (X t ω) / (2 * t * (t : ℝ).log.log).sqrt : ℝ≥0 → EReal) atTop = 1 := by
+  filter_upwards [IsBrownian.LIL_upper X, IsBrownian.LIL_lower X h_meas] with ω hω1 hω2
+  exact eq_of_le_of_ge hω1 hω2
