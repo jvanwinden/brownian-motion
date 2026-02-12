@@ -18,11 +18,6 @@ open scoped ENNReal NNReal Topology BoundedContinuousFunction
 
 variable {T Ω E : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
 
-theorem meas_congr {X Y : Ω → ℝ} (s : Set ℝ) (h : IdentDistrib X Y P P)
-    : P {ω | s (X ω)} = P {ω | s (Y ω)} := by
-
-  sorry
-
 -- todo: generalize and upstream?
 theorem EReal.limsup_const_mul {α : Type u_1} {f : Filter α}
     {u : α → EReal} {a : EReal} (h₁ : 0 < a) (h₂ : a ≠ ⊤) :
@@ -39,22 +34,8 @@ theorem EReal.limsup_const_mul {α : Type u_1} {f : Filter α}
     simp_rw [← EReal.div_lt_iff (by aesop) (by aesop)] at hr ⊢
     apply Filter.frequently_lt_of_lt_limsup (hu := by isBoundedDefault) hr
 
--- already upstreamed to mathlib
-theorem iIndep_of_iIndep_of_le {ι} {m₁ m₂ : ι → MeasurableSpace Ω}
-    (h_indep : iIndep m₂ P) (h_le : ∀ i, m₁ i ≤ m₂ i) : iIndep m₁ P :=
-  fun s t ht ↦ h_indep s fun i hi ↦ h_le i (t i) <| ht i hi
-
--- already upstreamed to mathlib
-theorem hasLaw.identDistrib {α β γ} {f : α → γ} {g : β → γ}
-    [MeasurableSpace α] [MeasurableSpace β] [MeasurableSpace γ]
-    {μ : Measure α} {ν : Measure β} {κ : Measure γ} (h₀ : HasLaw f κ μ)
-    (h₁ : HasLaw g κ ν) : IdentDistrib f g μ ν :=
-  ⟨h₀.aemeasurable, h₁.aemeasurable, by simp [h₀.map_eq, h₁.map_eq]⟩
-
 lemma IsBrownian.neg {X} (hX : IsBrownian X P) :
     IsBrownian (-X) P := by
-  -- want to use `ProbabilityTheory.gaussianReal_neg`
-  -- but there are universe issues (fixed in upstream mathlib)
   sorry
 
 lemma IsBrownian.reflection {X t} {c : ℝ} (hX : IsBrownian X P) (ht : 0 < t) (hc : 0 ≤ c)
@@ -147,8 +128,12 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
     rw [Measure.real_def, Measure.real_def]
     rw [ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)]
     have h : IdentDistrib (fun ω ↦ ((c : ℝ) ^ (n + 1)).sqrt * X 1 ω) (X (c ^ (n + 1))) P P := by
-      sorry
-    have h := h.measure_mem_eq
+      apply IdentDistrib.symm
+      apply (hX.hasLaw_eval (c ^ (n + 1))).identDistrib
+      convert gaussianReal_const_mul (hX.hasLaw_eval 1) ((c : ℝ) ^ (n + 1)).sqrt
+      · norm_num
+      · aesop
+    replace h := h.measure_mem_eq
       (by measurability : MeasurableSet {x | ((c : ℝ) ^ (n + 1)).sqrt * g n ≤ x})
     simp_rw [Set.preimage_setOf_eq] at h
     convert h using 4
@@ -245,8 +230,8 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
     norm_cast; aesop
   -- auxiliary definitions
   let g := fun x ↦ (2 * (x : ℝ).log.log).sqrt
-  let A := fun n ↦ {ω | g (c ^ (n + 1)) ≤
-    (X (c ^ (n + 1)) ω - X (c ^ n) ω) / Real.sqrt (c ^ (n + 1) - c ^ n)}
+  let A := fun n ↦ {ω | Real.sqrt (c ^ (n + 1) - c ^ n) * g (c ^ (n + 1)) ≤
+    (X (c ^ (n + 1)) ω - X (c ^ n) ω)}
   -- prepare for application of Borel-Cantelli
   suffices h : P (Filter.limsup A atTop) = 1 by
     rw [← MeasureTheory.mem_ae_iff_prob_eq_one <| by measurability] at h
@@ -263,7 +248,7 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
     -- simple rewrite
     simp_rw [Real.log_pow, pow_add] at *; push_cast at *
     rw [EReal.coe_le_coe_iff, le_div_iff₀ <| Real.sqrt_pos_of_pos <| by bound]
-    rw [le_div_iff₀ (Real.sqrt_pos_of_pos <| by aesop)] at hn
+    --rw [le_div_iff₀ (Real.sqrt_pos_of_pos <| by aesop)] at hn
     convert hn using 1
     · rw [← Real.sqrt_mul (by bound), ← Real.sqrt_mul' _ (by bound)]
       field_simp
@@ -271,7 +256,7 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
   apply ProbabilityTheory.measure_limsup_eq_one (by measurability)
   all_goals unfold A
   · -- show independence
-    conv in g _ ≤ _ => rw [le_div_iff₀ (Real.sqrt_pos_of_pos <| by rw [pow_add]; aesop)]
+    --conv in g _ ≤ _ => rw [le_div_iff₀ (Real.sqrt_pos_of_pos <| by rw [pow_add]; aesop)]
     rw [iIndepSet_iff_iIndep]
     have h' := hX.hasIndepIncrements
     rw [HasIndepIncrements.iff_increments_nat] at h'
@@ -296,15 +281,26 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
     rw [max_eq_right (by bound)]
     rw [Measure.real_def, Measure.real_def]
     rw [ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)]
-    apply ProbabilityTheory.IdentDistrib.measure_mem_eq _
-      (by measurability : MeasurableSet (Set.Ici (g (c ^ (n + 1)))))
-    apply hasLaw.identDistrib _ (hX.hasLaw_eval 1)
-    -- need scalar multiplication for hasLaw, then apply hasLaw_preBrownian_sub
-    simp_rw [div_eq_mul_inv]
-    -- want to use `ProbabilityTheory.gaussianReal_mul_const`
-    -- but there are universe errors (fixed in upstream mathlib)
-    -- use `IsBrownian.hasLaw_sub`
-    sorry
+    have h' : IdentDistrib (fun ω ↦ X (c ^ (n + 1)) ω - X (c ^ n) ω)
+        (fun ω ↦ √(↑c ^ (n + 1) - ↑c ^ n) * X 1 ω) P P := by
+      apply (hX.hasLaw_sub (c ^ (n + 1)) (c ^ n)).identDistrib
+      rw [max_eq_left]; swap
+      · convert zero_le (α := ℝ≥0) _
+        rw [NNReal.sub_def, Real.toNNReal_eq_zero, sub_nonpos]
+        push_cast; bound
+      convert gaussianReal_const_mul (hX.hasLaw_eval 1) _ using 2
+      · norm_num
+      rw [NNReal.eq_iff]; rify
+      rw [Real.sq_sqrt (by bound), NNReal.coe_sub (by bound)]
+      push_cast; field_simp
+    convert h'.measure_mem_eq (s := {x | _ ≤ (x : ℝ)}) _
+    · simp_rw [Set.preimage_setOf_eq]
+      congr! 2
+      rw [← mul_le_mul_iff_of_pos_left]
+      apply Real.sqrt_pos_of_pos
+      rw [sub_pos, pow_add]
+      apply lt_mul_of_one_lt_right (by positivity) (by bound)
+    · measurability
   -- apply limit comparison test
   rw [← IsEquivalent.summable_iff_nat
       (f := fun n ↦ (1 / (g (c ^ (max 1 n)))) * (-1/2 * (g (c ^ (max 1 n))) ^ 2).exp)]; swap
