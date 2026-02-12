@@ -18,6 +18,11 @@ open scoped ENNReal NNReal Topology BoundedContinuousFunction
 
 variable {T Ω E : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
 
+theorem meas_congr {X Y : Ω → ℝ} (s : Set ℝ) (h : IdentDistrib X Y P P)
+    : P {ω | s (X ω)} = P {ω | s (Y ω)} := by
+
+  sorry
+
 -- todo: generalize and upstream?
 theorem EReal.limsup_const_mul {α : Type u_1} {f : Filter α}
     {u : α → EReal} {a : EReal} (h₁ : 0 < a) (h₂ : a ≠ ⊤) :
@@ -137,12 +142,24 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
     apply Filter.Tendsto.const_mul_atTop (by positivity)
     repeat apply Real.tendsto_log_atTop.comp
     exact tendsto_pow_atTop_atTop_of_one_lt hc
-  -- convert to a standard Gaussian
-  -- possibly change to congr_atTop if needed
   apply Summable.congr (f := fun n ↦ P.real {ω | g n ≤ X 1 ω}); swap
   · intro n
-    -- show equivalence by switching the law
-    sorry
+    rw [Measure.real_def, Measure.real_def]
+    rw [ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)]
+    have h : IdentDistrib (fun ω ↦ ((c : ℝ) ^ (n + 1)).sqrt * X 1 ω) (X (c ^ (n + 1))) P P := by
+      sorry
+    have h := h.measure_mem_eq
+      (by measurability : MeasurableSet {x | ((c : ℝ) ^ (n + 1)).sqrt * g n ≤ x})
+    simp_rw [Set.preimage_setOf_eq] at h
+    convert h using 4
+    · rw [← mul_le_mul_iff_of_pos_left]
+      positivity
+    congr! 1
+    rw [← Real.sqrt_sq (by positivity : 0 ≤ (c : ℝ))]
+    repeat rw [← Real.sqrt_mul (by positivity)]
+    rw [Real.sqrt_sq (by positivity), pow_add]
+    push_cast
+    field_simp
   apply summable_of_isBigO_nat <| Real.summable_nat_rpow_inv.2 hc
   -- apply Gaussian tail estimate
   have h' := (IsStandardGaussian.tail (hX.hasLaw_eval 1)).comp_tendsto hg_tt
