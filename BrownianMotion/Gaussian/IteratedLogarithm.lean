@@ -241,8 +241,8 @@ lemma IsBrownian.LIL_lower {X} (hX : IsBrownian X P) (h_meas : ∀ t, Measurable
       EReal.coe_sub, Pi.add_def]
     norm_cast; aesop
   -- auxiliary definitions
-  let g := fun x ↦ (2 * (x : ℝ).log.log).sqrt
-  let A := fun n ↦ {ω | Real.sqrt (c ^ (n + 1) - c ^ n) * g (c ^ (n + 1)) ≤
+  let g := fun (n : ℕ) ↦ (2 * ((c : ℝ) ^ n).log.log).sqrt
+  let A := fun n ↦ {ω | Real.sqrt (c ^ (n + 1) - c ^ n) * g (n + 1) ≤
     (X (c ^ (n + 1)) ω - X (c ^ n) ω)}
   -- prepare for application of Borel-Cantelli
   suffices h : P (Filter.limsup A atTop) = 1 by
@@ -282,7 +282,7 @@ lemma IsBrownian.LIL_lower {X} (hX : IsBrownian X P) (h_meas : ∀ t, Measurable
   simp_rw [← ENNReal.ofNNReal_toNNReal, ENNReal.tsum_coe_eq_top_iff_not_summable_coe,
     Real.coe_toNNReal (r := P.real _) (by positivity)]
   -- rewrite in terms of standard Gaussian
-  suffices h : ¬(Summable (fun n ↦ P.real {ω | g (c ^ n) ≤ X 1 ω})) by
+  suffices h : ¬(Summable (fun n ↦ P.real {ω | g n ≤ X 1 ω})) by
     rw [← summable_nat_add_iff 1 (G := ℝ)] at h
     convert h using 3 with n
     -- remove .real and max
@@ -310,22 +310,19 @@ lemma IsBrownian.LIL_lower {X} (hX : IsBrownian X P) (h_meas : ∀ t, Measurable
       apply lt_mul_of_one_lt_right (by positivity) (by bound)
     · measurability
   -- apply limit comparison test
-  rw [← IsEquivalent.summable_iff_nat
-      (f := fun n ↦ (1 / (g (c ^ n))) * (-1/2 * (g (c ^ n)) ^ 2).exp)]; swap
+  rw [IsEquivalent.summable_iff_nat
+      (g := fun n ↦ (1 / (g n)) * ((1 / n) * (1 / Real.log c)))]; swap
   · -- show asymptotic equivalence
-    apply ((IsStandardGaussian.tail <| hX.hasLaw_eval 1).comp_tendsto _).symm
-    apply Real.tendsto_sqrt_atTop.comp
-    apply Filter.Tendsto.const_mul_atTop (by norm_num)
-    repeat apply Real.tendsto_log_atTop.comp
-    apply tendsto_pow_atTop_atTop_of_one_lt hc1
-  -- show non-summability of elementary function
-  -- simplify exponential
-  rw [summable_congr_atTop (g₁ := fun n ↦ 1 / g (c ^ n) * ((1 / n) * (1 / Real.log c)))]
-  swap
-  · filter_upwards [eventually_ge_atTop 1] with n hn; congr 1
-    unfold g
-    rw [Real.log_pow, Real.sq_sqrt (by bound)]; field_simp
-    rw [Real.exp_neg, Real.exp_log (by positivity)]; field_simp
+    apply ((IsStandardGaussian.tail <| hX.hasLaw_eval 1).comp_tendsto _).trans_eventuallyEq
+    · unfold g; simp_rw [Function.comp_def]
+      filter_upwards [eventually_ge_atTop 1] with n hn; congr 1
+      rw [Real.log_pow, Real.sq_sqrt (by bound)]; field_simp
+      rw [Real.exp_neg, Real.exp_log (by positivity)]; field_simp
+    · apply Real.tendsto_sqrt_atTop.comp
+      apply Filter.Tendsto.const_mul_atTop (by norm_num)
+      repeat apply Real.tendsto_log_atTop.comp
+      apply tendsto_pow_atTop_atTop_of_one_lt hc1
+  -- show non-summability of elementary series
   -- get rid of constant
   simp_rw [← mul_assoc]
   rw [summable_mul_right_iff (by positivity)]
@@ -345,7 +342,8 @@ lemma IsBrownian.LIL_lower {X} (hX : IsBrownian X P) (h_meas : ∀ t, Measurable
   unfold g
   push_cast; field_simp
   -- apply limit comparison test again
-  rw [IsEquivalent.summable_iff_nat (g := fun k : ℕ ↦ 1 / (2 * Real.log 2).sqrt * (1 / Real.sqrt k))]
+  rw [IsEquivalent.summable_iff_nat
+    (g := fun k : ℕ ↦ 1 / (2 * Real.log 2).sqrt * (1 / Real.sqrt k))]
   · -- non-summability of p-series
     rw [summable_mul_left_iff (by positivity)]
     simp_rw [Real.sqrt_eq_rpow]
@@ -358,8 +356,7 @@ lemma IsBrownian.LIL_lower {X} (hX : IsBrownian X P) (h_meas : ∀ t, Measurable
   rw [Pi.div_def]
   conv in _ / _ => rw [← Real.sqrt_mul (by positivity), ← Real.sqrt_div (by bound),
     Real.log_mul (by positivity) (by positivity)]
-  push_cast; simp_rw [Real.log_pow]
-  ring_nf
+  push_cast; simp_rw [Real.log_pow]; ring_nf
   simp_rw [(by simp : nhds 1 = nhds (Real.sqrt (1 + 0)))]
   apply Filter.Tendsto.sqrt
   apply Filter.Tendsto.add
