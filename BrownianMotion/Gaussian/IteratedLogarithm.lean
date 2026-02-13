@@ -34,6 +34,11 @@ theorem EReal.limsup_const_mul {α : Type u_1} {f : Filter α}
     simp_rw [← EReal.div_lt_iff (by aesop) (by aesop)] at hr ⊢
     apply Filter.frequently_lt_of_lt_limsup (hu := by isBoundedDefault) hr
 
+lemma IsBrownian.ae_eq_mk {X} (h : IsBrownian X P) :
+    ∀ᵐ ω ∂P, ∀ t : ℝ≥0, (h.toIsPreBrownian.mk) t ω = X t ω := by
+  apply indistinguishable_of_modification _ h.cont h.toIsPreBrownian.mk_ae_eq
+  exact .of_forall h.toIsPreBrownian.continuous_mk
+
 lemma IsBrownian.neg {X} (hX : IsBrownian X P) :
     IsBrownian (-X) P := by
   sorry
@@ -53,10 +58,8 @@ lemma filter_atTop_atTop (c : ℝ≥0) (hc0 : 0 < c) :
   exact fun d _ ↦ ⟨c⁻¹ * d, ⟨mul_inv_cancel_left₀ (by aesop) d,
     fun _ ↦ (le_inv_mul_iff₀ hc0).symm⟩⟩
 
-variable (X : ℝ≥0 → Ω → ℝ) [hX : ProbabilityTheory.IsBrownian X P]
-
-lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
-    ((X t ω) / (2 * t * (t : ℝ).log.log).sqrt).toEReal) atTop ≤ 1 := by
+lemma IsBrownian.LIL_upper {X} (hX : IsBrownian X P) :
+    ∀ᵐ ω ∂P, limsup (fun t ↦ ((X t ω) / (2 * t * (t : ℝ).log.log).sqrt).toEReal) atTop ≤ 1 := by
   -- Introduce notation
   let M := fun t ω ↦ (⨆ s ≤ t, (X s ω : EReal))
   let f := fun (t : ℝ≥0) ↦ (2 * t * (t : ℝ).log.log).sqrt
@@ -168,7 +171,7 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
     · exact Real.log_nonneg <| le_of_lt hc
     field_simp; rfl
 
-lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
+lemma IsBrownian.LIL_lower {X} (hX : IsBrownian X P) (h_meas : ∀ t, Measurable (X t)) :
     ∀ᵐ ω ∂P, 1 ≤ limsup (fun t ↦ (X t ω) / (2 * t * (t : ℝ).log.log).sqrt : ℝ≥0 → EReal) atTop := by
   let f := fun (t : ℝ≥0) ↦ (2 * t * (t : ℝ).log.log).sqrt
   -- Rewrite the inequality into a nice form with the quantifier outside
@@ -203,7 +206,7 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
     have h2 : ∀ᵐ ω ∂P,
         limsup (fun t ↦ (-X (t / c) ω / f (t)).toEReal) atTop
           ≤ (1 / (c : ℝ).sqrt).toEReal := by
-      convert IsBrownian.LIL_upper (X := fun t ω ↦ (c : ℝ).sqrt * (-X (t / c) ω)) using 1
+      convert IsBrownian.LIL_upper (X := fun t ω ↦ (c : ℝ).sqrt * (-X (t / c) ω)) _ using 1
       · funext ω
         simp_rw [← mul_div, EReal.coe_mul]
         rw [EReal.limsup_const_mul (by positivity) (by aesop)]
@@ -349,7 +352,11 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
     rw [Filter.tendsto_mul_const_atTop_iff_pos (tendsto_natCast_atTop_atTop)]
     positivity
 
-lemma IsBrownian.iterated_logarithm (h_meas : ∀ t, Measurable (X t)) :
+lemma IsBrownian.iterated_logarithm {X} (hX : IsBrownian X P) :
     ∀ᵐ ω ∂P, limsup (fun t ↦ (X t ω) / (2 * t * (t : ℝ).log.log).sqrt : ℝ≥0 → EReal) atTop = 1 := by
-  filter_upwards [IsBrownian.LIL_upper X, IsBrownian.LIL_lower X h_meas] with ω hω_up hω_low
-  exact eq_of_le_of_ge hω_up hω_low
+  have h_up := IsBrownian.LIL_upper hX.isBrownian_mk
+  have h_low := IsBrownian.LIL_lower hX.isBrownian_mk hX.measurable_mk
+  have h_ae := IsBrownian.ae_eq_mk hX
+  filter_upwards [h_up, h_low, h_ae] with ω hω_up hω_low hω_ae
+  convert eq_of_le_of_ge hω_up hω_low
+  simp_rw [hω_ae]; rfl
