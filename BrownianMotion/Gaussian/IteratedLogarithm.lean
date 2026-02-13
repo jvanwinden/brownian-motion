@@ -16,12 +16,13 @@ open MeasureTheory NNReal WithLp Finset MeasurableSpace Filtration Filter
 open ProbabilityTheory
 open scoped ENNReal NNReal Topology BoundedContinuousFunction
 
-variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω} [IsProbabilityMeasure P]
-
--- todo: generalize and upstream?
-theorem EReal.limsup_const_mul {α : Type u_1} {f : Filter α}
-    {u : α → EReal} {a : EReal} (h₁ : 0 < a) (h₂ : a ≠ ⊤) :
+-- todo: generalize and upstream
+theorem EReal.limsup_const_mul {α : Type*} {f : Filter α} [NeBot f]
+    {u : α → EReal} {a : EReal} (h₁ : 0 ≤ a) (h₂ : a ≠ ⊤) :
     Filter.limsup (fun x => a * u x) f = a * Filter.limsup u f := by
+  by_cases! h₃ : (a ≤ 0)
+  · simp_rw [(eq_of_le_of_ge h₃ h₁), zero_mul]
+    aesop
   simp_rw [mul_comm (a := a)]
   apply eq_of_le_of_ge
   · rw [Filter.limsup_le_iff]
@@ -34,14 +35,34 @@ theorem EReal.limsup_const_mul {α : Type u_1} {f : Filter α}
     simp_rw [← EReal.div_lt_iff (by aesop) (by aesop)] at hr ⊢
     apply Filter.frequently_lt_of_lt_limsup (hu := by isBoundedDefault) hr
 
-lemma IsBrownian.ae_eq_mk {X} (h : IsBrownian X P) :
+namespace ProbabilityTheory
+
+variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
+
+lemma IsBrownian.mk_ae_forall_eq {X} [h : IsBrownian X P] :
     ∀ᵐ ω ∂P, ∀ t : ℝ≥0, (h.toIsPreBrownian.mk) t ω = X t ω := by
   apply indistinguishable_of_modification _ h.cont h.toIsPreBrownian.mk_ae_eq
   exact .of_forall h.toIsPreBrownian.continuous_mk
 
-lemma IsBrownian.neg {X} (hX : IsBrownian X P) :
-    IsBrownian (-X) P := by
-  sorry
+lemma IsBrownian.aemeasurable {X} [h : IsBrownian X P] :
+    AEMeasurable (fun ω t ↦ X t ω) P := by
+  let Y := h.toIsPreBrownian.mk
+  refine ⟨fun ω t ↦ Y t ω, by measurability, ?_⟩
+  simp_rw [EventuallyEq, funext_iff]
+  convert h.mk_ae_forall_eq using 3
+  aesop
+
+lemma IsPreBrownian.neg {X} [hX : IsPreBrownian X P] : IsPreBrownian (-X) P := by
+  apply HasIndepIncrements.isPreBrownian_of_hasLaw
+  · exact fun t ↦ by simpa using gaussianReal_neg (hX.hasLaw_eval t)
+  intro n s hs
+  convert (hX.hasIndepIncrements n s hs).comp (fun _ x ↦ -x) (by measurability)
+  simp; linarith
+
+lemma IsBrownian.neg {X} [hX : IsBrownian X P] :
+    IsBrownian (-X) P where
+  toIsPreBrownian := hX.toIsPreBrownian.neg
+  cont := hX.cont.mono (fun _ _ ↦ by simpa [← Pi.neg_def, continuous_neg_iff])
 
 lemma IsBrownian.reflection {X t} {c : ℝ} (hX : IsBrownian X P) (ht : 0 < t) (hc : 0 ≤ c)
     : P.real {ω | c ≤ ⨆ s ≤ t, (X s ω).toEReal} = 2 * P.real {ω | c ≤ X t ω} :=
@@ -52,11 +73,7 @@ lemma IsStandardGaussian.tail {X} (hX : HasLaw X (gaussianReal 0 1) P) :
     (fun x ↦ 1 / x * (-1/2 * x ^ 2).exp) := by
   sorry
 
-lemma filter_atTop_atTop (c : ℝ≥0) (hc0 : 0 < c) :
-    Filter.map (fun x ↦ c * x : ℝ≥0 → ℝ≥0) atTop = atTop := by
-  apply Filter.map_atTop_eq_of_gc_preorder (mul_right_mono) 0 _
-  exact fun d _ ↦ ⟨c⁻¹ * d, ⟨mul_inv_cancel_left₀ (by aesop) d,
-    fun _ ↦ (le_inv_mul_iff₀ hc0).symm⟩⟩
+variable [IsProbabilityMeasure P]
 
 lemma IsBrownian.LIL_upper {X} (hX : IsBrownian X P) :
     ∀ᵐ ω ∂P, limsup (fun t ↦ ((X t ω) / (2 * t * (t : ℝ).log.log).sqrt).toEReal) atTop ≤ 1 := by
@@ -114,7 +131,7 @@ lemma IsBrownian.LIL_upper {X} (hX : IsBrownian X P) :
         apply EReal.coe_le_coe <| fmono htn3 (le_trans htn3 htn1) htn1
   apply ae_eventually_notMem
   conv in P _ => rw [← MeasureTheory.ofReal_measureReal]
-  conv in P.real _ => rw [← EReal.coe_mul, IsBrownian.reflection hX (by positivity) (by positivity)]
+  conv in P.real _ => rw [← EReal.coe_mul, hX.reflection (by positivity) (by positivity)]
   apply Summable.tsum_ofReal_ne_top
   rw [summable_mul_left_iff (by norm_num)]
   -- introduce auxiliary function g and show limit at infinity
@@ -198,6 +215,7 @@ lemma IsBrownian.LIL_lower {X} (hX : IsBrownian X P) (h_meas : ∀ t, Measurable
       filter_upwards [hrimp hr1 hlogr] with ω hω
       exact lt_of_lt_of_le (by exact_mod_cast hrc) hω
   intro c hc1 hlogc
+  have hloglogc := Real.log_pos hlogc
   lift c to ℝ≥0 using by positivity
   have hc0 : (0 < c) := by positivity [by exact_mod_cast hc1]
   -- Rewrite in terms of limsup of difference
@@ -213,8 +231,7 @@ lemma IsBrownian.LIL_lower {X} (hX : IsBrownian X P) (h_meas : ∀ t, Measurable
         rw [mul_comm, ← EReal.le_div_iff_mul_le (by positivity) (by aesop)]
         rfl
       · infer_instance
-      · have hnegX : IsBrownian (fun t ω ↦ - X t ω) P := IsBrownian.neg hX
-        convert hnegX.smul (c := (1 / c)) (by positivity) using 3 with t
+      · convert hX.neg.smul (c := (1 / c)) (by positivity) using 3 with t
         simp; field_simp
     filter_upwards [h1, h2] with ω hω hω'
     simp_rw [neg_div, EReal.coe_neg, ← Pi.neg_def, EReal.limsup_neg, EReal.neg_le] at hω'
@@ -302,53 +319,54 @@ lemma IsBrownian.LIL_lower {X} (hX : IsBrownian X P) (h_meas : ∀ t, Measurable
     repeat apply Real.tendsto_log_atTop.comp
     apply tendsto_pow_atTop_atTop_of_one_lt hc1
   -- show non-summability of elementary function
-  unfold g
-  rw [summable_congr_atTop (g₁ := fun n ↦ 1 / n * (1 / ((n : ℝ).log + (c : ℝ).log.log).sqrt))]
+  -- simplify exponential
+  rw [summable_congr_atTop (g₁ := fun n ↦ 1 / g (c ^ n) * ((1 / n) * (1 / Real.log c)))]
   swap
-  · filter_upwards [eventually_ge_atTop 1] with n hn
-    simp_rw [Real.log_pow]
-    conv in √_ ^ 2 => rw [Real.sq_sqrt (by bound)]
-    field_simp
-    simp_rw [Real.exp_neg]
-    conv in Real.exp _ => rw [Real.exp_log (by bound)]
-    conv in √_ => rw [Real.sqrt_mul (by positivity)]
-    sorry
-    -- simp_rw [← one_div_mul_one_div]
-    -- field_simp
-    -- simp_rw [mul_comm (b := 1 / Real.log c), mul_assoc]
-    -- rw [summable_mul_left_iff (by positivity)]
-    -- simp_rw [← mul_assoc, mul_comm (b := 1 / Real.sqrt 2), mul_assoc]
-    -- rw [summable_mul_left_iff (by positivity)]
-    -- conv in Real.log _ => rw [Real.log_mul (by positivity) (by positivity)]
+  · filter_upwards [eventually_ge_atTop 1] with n hn; congr 1
+    unfold g
+    rw [Real.log_pow, Real.sq_sqrt (by bound)]; field_simp
+    rw [Real.exp_neg, Real.exp_log (by positivity)]; field_simp
+  -- get rid of constant
+  simp_rw [← mul_assoc]
+  rw [summable_mul_right_iff (by positivity)]
   -- apply Cauchy condensation test
   rw [← summable_condensed_iff_of_eventually_nonneg]; rotate_left
   · exact Eventually.of_forall (fun _ ↦ by positivity)
   · -- antitone side condition
     filter_upwards [eventually_gt_atTop 1] with n hn1
-    apply mul_le_mul (by bound) _ (by positivity) (by positivity)
-    apply one_div_le_one_div_of_le (by positivity [Real.log_pos hlogc])
-    apply Real.sqrt_le_sqrt <| add_le_add_left _ _
-    exact Real.log_le_log (by positivity) (by bound)
+    apply mul_le_mul _ (by bound) (by positivity) (by positivity)
+    unfold g; simp_rw [Real.log_pow]
+    repeat rw [Real.log_mul (by positivity) (by positivity)]
+    apply one_div_le_one_div_of_le (by positivity)
+    apply Real.sqrt_le_sqrt
+    apply mul_le_mul_of_nonneg_left _ (by norm_num)
+    apply add_le_add_left
+    apply Real.log_le_log (by positivity) (by bound)
+  unfold g
   push_cast; field_simp
-  simp_rw [Real.log_pow]
   -- apply limit comparison test again
-  rw [IsEquivalent.summable_iff_nat (g := fun k : ℕ ↦ 1 / Real.sqrt (k * Real.log 2))]
+  rw [IsEquivalent.summable_iff_nat (g := fun k : ℕ ↦ 1 / (2 * Real.log 2).sqrt * (1 / Real.sqrt k))]
   · -- non-summability of p-series
-    conv in √_ => rw [Real.sqrt_mul (by positivity)]
-    simp_rw [← one_div_mul_one_div, Real.sqrt_eq_rpow]
-    rw [summable_mul_right_iff (by positivity), Real.summable_one_div_nat_rpow]
+    rw [summable_mul_left_iff (by positivity)]
+    simp_rw [Real.sqrt_eq_rpow]
+    rw [Real.summable_one_div_nat_rpow]
     norm_num
   -- asymptotic equivalence
+  simp_rw [one_div_mul_one_div, Real.log_pow]
   apply Asymptotics.IsEquivalent.div (by rfl)
   apply Asymptotics.isEquivalent_of_tendsto_one
   rw [Pi.div_def]
-  conv in _ / _ => rw [← Real.sqrt_div' _ (by positivity)]
-  simp_rw [add_div, (by simp : nhds 1 = nhds (Real.sqrt (1 + 0)))]
+  conv in _ / _ => rw [← Real.sqrt_mul (by positivity), ← Real.sqrt_div (by bound),
+    Real.log_mul (by positivity) (by positivity)]
+  push_cast; simp_rw [Real.log_pow]
+  ring_nf
+  simp_rw [(by simp : nhds 1 = nhds (Real.sqrt (1 + 0)))]
   apply Filter.Tendsto.sqrt
   apply Filter.Tendsto.add
   · apply Filter.Tendsto.congr' (f₁ := fun x ↦ 1) _ (by aesop)
     filter_upwards [eventually_gt_atTop 0] with n hn using by field_simp
-  · apply Filter.Tendsto.const_div_atTop
+  · field_simp
+    apply Filter.Tendsto.const_div_atTop
     rw [Filter.tendsto_mul_const_atTop_iff_pos (tendsto_natCast_atTop_atTop)]
     positivity
 
@@ -356,7 +374,9 @@ lemma IsBrownian.iterated_logarithm {X} (hX : IsBrownian X P) :
     ∀ᵐ ω ∂P, limsup (fun t ↦ (X t ω) / (2 * t * (t : ℝ).log.log).sqrt : ℝ≥0 → EReal) atTop = 1 := by
   have h_up := IsBrownian.LIL_upper hX.isBrownian_mk
   have h_low := IsBrownian.LIL_lower hX.isBrownian_mk hX.measurable_mk
-  have h_ae := IsBrownian.ae_eq_mk hX
+  have h_ae := hX.mk_ae_forall_eq
   filter_upwards [h_up, h_low, h_ae] with ω hω_up hω_low hω_ae
   convert eq_of_le_of_ge hω_up hω_low
   simp_rw [hω_ae]; rfl
+
+end ProbabilityTheory
