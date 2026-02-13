@@ -267,12 +267,12 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
   simp_rw [← ENNReal.ofNNReal_toNNReal, ENNReal.tsum_coe_eq_top_iff_not_summable_coe,
     Real.coe_toNNReal (r := P.real _) (by positivity)]
   -- rewrite in terms of standard Gaussian
-  suffices h : ¬(Summable (fun n ↦ P.real {ω | g (c ^ (max 1 n)) ≤ X 1 ω})) by
+  suffices h : ¬(Summable (fun n ↦ P.real {ω | g (c ^ n) ≤ X 1 ω})) by
     rw [← summable_nat_add_iff 1 (G := ℝ)] at h
     convert h using 3 with n
     -- remove .real and max
     simp_rw [Measure.real_def]
-    rw [ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness), max_eq_right (by bound)]
+    rw [ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)]
     have h_idd : IdentDistrib
         (fun ω ↦ X (c ^ (n + 1)) ω - X (c ^ n) ω)
         (fun ω ↦ Real.sqrt (c ^ (n + 1) - c ^ n) * X 1 ω) P P := by
@@ -296,66 +296,63 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
     · measurability
   -- apply limit comparison test
   rw [← IsEquivalent.summable_iff_nat
-      (f := fun n ↦ (1 / (g (c ^ (max 1 n)))) * (-1/2 * (g (c ^ (max 1 n))) ^ 2).exp)]; swap
+      (f := fun n ↦ (1 / (g (c ^ n))) * (-1/2 * (g (c ^ n)) ^ 2).exp)]; swap
   · -- show asymptotic equivalence
     apply ((IsStandardGaussian.tail <| hX.hasLaw_eval 1).comp_tendsto _).symm
     apply Real.tendsto_sqrt_atTop.comp
     apply Filter.Tendsto.const_mul_atTop (by norm_num)
     repeat apply Real.tendsto_log_atTop.comp
-    apply tendsto_pow_atTop_atTop_of_one_lt hc1 |>.congr'
-    exact eventually_ge_atTop 1|>.mono <| fun _ hn ↦ by simp [max_eq_right hn]
-  · -- show non-summability of elementary function
-    unfold g
+    apply tendsto_pow_atTop_atTop_of_one_lt hc1
+  -- show non-summability of elementary function
+  unfold g
+  rw [summable_congr_atTop (g₁ := fun n ↦ 1 / n * (1 / ((n : ℝ).log + (c : ℝ).log.log).sqrt))]
+  swap
+  · filter_upwards [eventually_ge_atTop 1] with n hn
     simp_rw [Real.log_pow]
     conv in √_ ^ 2 => rw [Real.sq_sqrt (by bound)]
     field_simp
     simp_rw [Real.exp_neg]
     conv in Real.exp _ => rw [Real.exp_log (by bound)]
     conv in √_ => rw [Real.sqrt_mul (by positivity)]
-    field_simp
-    simp_rw [← one_div_mul_one_div]
-    simp_rw [mul_comm (b := 1 / Real.log c), mul_assoc]
-    rw [summable_mul_left_iff (by positivity)]
-    simp_rw [← mul_assoc, mul_comm (b := 1 / Real.sqrt 2), mul_assoc]
-    rw [summable_mul_left_iff (by positivity)]
-    conv in Real.log _ => rw [Real.log_mul (by positivity) (by positivity)]
-    -- apply Cauchy condensation test
-    rw [← summable_condensed_iff_of_nonneg (fun _ ↦ by positivity)]; swap
-    all_goals push_cast
-    · -- antitone side condition of condensation test
-      intro m n hm0 hmn
-      apply mul_le_mul _ _ (by positivity) (by positivity)
-      · rw [one_div_le_one_div (by aesop) (by aesop)]
-        apply max_le_max_left; aesop
-      rw [one_div_le_one_div _ _]
-      · apply Real.sqrt_le_sqrt
-        apply add_le_add (Real.log_le_log (by positivity) <| max_le_max_left _ (by aesop)) _
-        apply Real.log_le_log (by positivity) (by rfl)
-      all_goals
-      rw [Real.sqrt_pos]
-      apply (lt_add_of_nonneg_of_lt (by bound) (Real.log_pos (by assumption)))
-    repeat conv in max _ _ => rw [max_eq_right (by bound)]
-    field_simp
-    simp_rw [Real.log_pow]
-    -- apply limit comparison test again
-    rw [← IsEquivalent.summable_iff_nat (f := fun k : ℕ ↦ 1 / Real.sqrt (k * Real.log 2))]
-    · conv in √_ => rw [Real.sqrt_mul (by positivity)]
-      simp_rw [← one_div_mul_one_div, Real.sqrt_eq_rpow]
-      rw [summable_mul_right_iff (by positivity), Real.summable_one_div_nat_rpow]
-      norm_num
-    · apply Asymptotics.isEquivalent_of_tendsto_one
-      rw [Pi.div_def]; field_simp
-      conv in _ / _ => rw [← Real.sqrt_div' _ (by positivity)]
-      rw [(by simp : nhds 1 = nhds (Real.sqrt (1 + 0)))]
-      simp_rw [add_div]
-      apply Filter.Tendsto.sqrt
-      apply Filter.Tendsto.add
-      · apply Filter.Tendsto.congr' (f₁ := fun x ↦ 1) _ (by aesop)
-        filter_upwards [eventually_gt_atTop 0] with n hn using by field_simp
-      · apply Filter.Tendsto.const_div_atTop
-        rw [Filter.tendsto_mul_const_atTop_iff_pos]
-        · positivity
-        exact tendsto_natCast_atTop_atTop
+    sorry
+    -- simp_rw [← one_div_mul_one_div]
+    -- field_simp
+    -- simp_rw [mul_comm (b := 1 / Real.log c), mul_assoc]
+    -- rw [summable_mul_left_iff (by positivity)]
+    -- simp_rw [← mul_assoc, mul_comm (b := 1 / Real.sqrt 2), mul_assoc]
+    -- rw [summable_mul_left_iff (by positivity)]
+    -- conv in Real.log _ => rw [Real.log_mul (by positivity) (by positivity)]
+  -- apply Cauchy condensation test
+  rw [← summable_condensed_iff_of_eventually_nonneg]; rotate_left
+  · exact Eventually.of_forall (fun _ ↦ by positivity)
+  · -- antitone side condition
+    filter_upwards [eventually_gt_atTop 1] with n hn1
+    apply mul_le_mul (by bound) _ (by positivity) (by positivity)
+    apply one_div_le_one_div_of_le (by positivity [Real.log_pos hlogc])
+    apply Real.sqrt_le_sqrt <| add_le_add_left _ _
+    exact Real.log_le_log (by positivity) (by bound)
+  push_cast; field_simp
+  simp_rw [Real.log_pow]
+  -- apply limit comparison test again
+  rw [IsEquivalent.summable_iff_nat (g := fun k : ℕ ↦ 1 / Real.sqrt (k * Real.log 2))]
+  · -- non-summability of p-series
+    conv in √_ => rw [Real.sqrt_mul (by positivity)]
+    simp_rw [← one_div_mul_one_div, Real.sqrt_eq_rpow]
+    rw [summable_mul_right_iff (by positivity), Real.summable_one_div_nat_rpow]
+    norm_num
+  -- asymptotic equivalence
+  apply Asymptotics.IsEquivalent.div (by rfl)
+  apply Asymptotics.isEquivalent_of_tendsto_one
+  rw [Pi.div_def]
+  conv in _ / _ => rw [← Real.sqrt_div' _ (by positivity)]
+  simp_rw [add_div, (by simp : nhds 1 = nhds (Real.sqrt (1 + 0)))]
+  apply Filter.Tendsto.sqrt
+  apply Filter.Tendsto.add
+  · apply Filter.Tendsto.congr' (f₁ := fun x ↦ 1) _ (by aesop)
+    filter_upwards [eventually_gt_atTop 0] with n hn using by field_simp
+  · apply Filter.Tendsto.const_div_atTop
+    rw [Filter.tendsto_mul_const_atTop_iff_pos (tendsto_natCast_atTop_atTop)]
+    positivity
 
 lemma IsBrownian.iterated_logarithm (h_meas : ∀ t, Measurable (X t)) :
     ∀ᵐ ω ∂P, limsup (fun t ↦ (X t ω) / (2 * t * (t : ℝ).log.log).sqrt : ℝ≥0 → EReal) atTop = 1 := by
