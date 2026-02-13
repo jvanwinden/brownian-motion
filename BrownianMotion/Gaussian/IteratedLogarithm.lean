@@ -1,4 +1,5 @@
 import BrownianMotion.Gaussian.BrownianMotion
+import Mathlib.Analysis.Calculus.LHopital
 import Mathlib.Analysis.PSeries
 import Mathlib.Probability.BorelCantelli
 
@@ -28,11 +29,38 @@ namespace ProbabilityTheory
 
 variable {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
 
+lemma HasIndepIncrements.iff_increments_nat {T E : Type*} [Preorder T] [Sub E] [MeasurableSpace E]
+    {X : T → Ω → E} {P : Measure Ω} [IsProbabilityMeasure P] :
+    HasIndepIncrements X P ↔ ∀ t : ℕ → T, Monotone t →
+      iIndepFun (fun i ω ↦ X (t (i + 1)) ω - X (t i) ω) P := by
+  constructor
+  · intro h t ht
+    rw [ProbabilityTheory.iIndepFun_iff_finset]
+    intro s
+    by_cases! hs : s.Nonempty
+    · rcases s.max_of_nonempty hs with ⟨n,hn⟩
+      let g : (s → Fin n.succ) :=
+        fun x ↦ ⟨x, Nat.lt_succ_of_le <| by simpa [hn] using s.le_max x.mem⟩
+      apply iIndepFun.precomp (g := g) _ <| h n.succ (fun m ↦ t m) _
+      · simp [g, Function.Injective]
+      · exact ht.comp Fin.val_strictMono.monotone
+    · rw [hs]; aesop
+  · intro h n t ht
+    let t' := fun x ↦ t ⟨min n x, by aesop⟩
+    convert iIndepFun.precomp (g := Fin.val) _ <| h t' _
+    · apply (min_eq_right <| Nat.add_one_le_of_lt (Fin.is_lt _)).symm
+    · aesop
+    · simpa [Function.Injective] using by aesop
+    · intro x y hxy
+      apply ht; aesop
+
+-- is in a PR
 lemma IsBrownian.mk_ae_forall_eq {X} [h : IsBrownian X P] :
     ∀ᵐ ω ∂P, ∀ t : ℝ≥0, (h.toIsPreBrownian.mk) t ω = X t ω := by
   apply indistinguishable_of_modification _ h.cont h.toIsPreBrownian.mk_ae_eq
   exact .of_forall h.toIsPreBrownian.continuous_mk
 
+-- is in a PR
 lemma IsBrownian.aemeasurable {X} [h : IsBrownian X P] :
     AEMeasurable (fun ω t ↦ X t ω) P := by
   let Y := h.toIsPreBrownian.mk
@@ -41,6 +69,7 @@ lemma IsBrownian.aemeasurable {X} [h : IsBrownian X P] :
   convert h.mk_ae_forall_eq using 3
   aesop
 
+-- is in a PR
 lemma IsPreBrownian.neg {X} [hX : IsPreBrownian X P] : IsPreBrownian (-X) P := by
   apply HasIndepIncrements.isPreBrownian_of_hasLaw
   · exact fun t ↦ by simpa using gaussianReal_neg (hX.hasLaw_eval t)
@@ -48,6 +77,7 @@ lemma IsPreBrownian.neg {X} [hX : IsPreBrownian X P] : IsPreBrownian (-X) P := b
   convert (hX.hasIndepIncrements n s hs).comp (fun _ x ↦ -x) (by measurability)
   simp; linarith
 
+-- is in a PR
 lemma IsBrownian.neg {X} [hX : IsBrownian X P] :
     IsBrownian (-X) P where
   toIsPreBrownian := hX.toIsPreBrownian.neg
