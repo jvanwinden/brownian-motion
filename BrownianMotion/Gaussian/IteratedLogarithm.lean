@@ -198,9 +198,9 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
   lift c to ℝ≥0 using by positivity
   have hc0 : (0 < c) := by positivity [by exact_mod_cast hc1]
   -- Rewrite in terms of limsup of difference
-  suffices h : ∀ᵐ ω ∂P, (1 - 1 / (c : ℝ)).sqrt ≤
+  suffices h1 : ∀ᵐ ω ∂P, (1 - 1 / (c : ℝ)).sqrt ≤
       limsup (fun t ↦ ((X t ω - X (t / c) ω) / f t).toEReal) atTop by
-    have h' : ∀ᵐ ω ∂P,
+    have h2 : ∀ᵐ ω ∂P,
         limsup (fun t ↦ (-X (t / c) ω / f (t)).toEReal) atTop
           ≤ (1 / (c : ℝ).sqrt).toEReal := by
       convert IsBrownian.LIL_upper (X := fun t ω ↦ (c : ℝ).sqrt * (-X (t / c) ω)) using 1
@@ -208,17 +208,12 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
         simp_rw [← mul_div, EReal.coe_mul]
         rw [EReal.limsup_const_mul (by positivity) (by aesop)]
         rw [mul_comm, ← EReal.le_div_iff_mul_le (by positivity) (by aesop)]
-        congr
+        rfl
       · infer_instance
       · have hnegX : IsBrownian (fun t ω ↦ - X t ω) P := IsBrownian.neg hX
-        have hsX := hnegX.smul (c := (1 / c)) (by positivity)
-        convert hsX using 2
-        funext ω
-        field_simp
-        congr 1
-        rw [mul_assoc, mul_comm, mul_assoc, ← Real.sqrt_mul (by positivity)]
-        push_cast; field_simp; norm_num
-    filter_upwards [h, h'] with ω hω hω'
+        convert hnegX.smul (c := (1 / c)) (by positivity) using 3 with t
+        simp; field_simp
+    filter_upwards [h1, h2] with ω hω hω'
     simp_rw [neg_div, EReal.coe_neg, ← Pi.neg_def, EReal.limsup_neg, EReal.neg_le] at hω'
     grw [sub_eq_add_neg, (add_le_add hω hω'), EReal.le_limsup_add]
     apply le_of_eq
