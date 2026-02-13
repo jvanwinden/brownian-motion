@@ -104,8 +104,7 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
     specialize htn2 t
     rw [max_eq_right ht1] at htn1 htn2
     exact_mod_cast calc
-      X t ω ≤ M (c ^ (n t + 1)) ω := by
-        apply le_iSup_of_le t <| le_iSup_of_le (by bound) (by rfl)
+      X t ω ≤ M (c ^ (n t + 1)) ω := le_iSup_of_le t <| le_iSup_of_le (by bound) (by rfl)
       _ < (c * f (c ^ (n t))) := by simpa using ht
       _ ≤ (c : ℝ) * (f t) := by
         apply mul_le_mul_of_nonneg_left _ <| le_of_lt <| by positivity
@@ -115,7 +114,6 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
   conv in P.real _ => rw [← EReal.coe_mul, IsBrownian.reflection hX (by positivity) (by positivity)]
   apply Summable.tsum_ofReal_ne_top
   rw [summable_mul_left_iff (by norm_num)]
-  unfold f
   -- introduce auxiliary function g and show limit at infinity
   let g := fun n : ℕ ↦ (2 * c * ((c : ℝ) ^ n).log.log).sqrt
   have hg_tt : Filter.Tendsto g atTop atTop := by
@@ -126,18 +124,18 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
   -- convert to standard Gaussian
   apply Summable.congr (f := fun n ↦ P.real {ω | g n ≤ X 1 ω}); swap
   · intro n
-    rw [Measure.real_def, Measure.real_def]
+    simp_rw [Measure.real_def]
     rw [ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)]
     have h : IdentDistrib (fun ω ↦ ((c : ℝ) ^ (n + 1)).sqrt * X 1 ω) (X (c ^ (n + 1))) P P := by
       apply IdentDistrib.symm
       apply (hX.hasLaw_eval _).identDistrib
-      convert gaussianReal_const_mul (hX.hasLaw_eval 1) ((c : ℝ) ^ (n + 1)).sqrt
+      convert gaussianReal_const_mul (hX.hasLaw_eval _) _
       · norm_num
       · aesop
     convert h.measure_mem_eq (s := {x | _ ≤ (x : ℝ)}) _
     · simp_rw [Set.preimage_setOf_eq]
       congr! 2
-      rw [← mul_le_mul_iff_of_pos_left (by positivity : 0 < √(↑c ^ (n + 1)))]
+      rw [← mul_le_mul_iff_of_pos_left (by positivity : 0 < ((c : ℝ) ^ (n + 1)).sqrt)]
       congr! 1
       rw [← Real.sqrt_sq (by positivity : 0 ≤ (c : ℝ))]
       repeat rw [← Real.sqrt_mul (by positivity)]
@@ -147,8 +145,8 @@ lemma IsBrownian.LIL_upper : ∀ᵐ ω ∂P, limsup (fun t ↦
     · measurability
   apply summable_of_isBigO_nat <| Real.summable_nat_rpow_inv.2 hc
   -- apply Gaussian tail estimate
-  have h' := (IsStandardGaussian.tail (hX.hasLaw_eval 1)).comp_tendsto hg_tt
-  apply Asymptotics.IsEquivalent.trans_isBigO h' _
+  have h := (IsStandardGaussian.tail (hX.hasLaw_eval 1)).comp_tendsto hg_tt
+  apply Asymptotics.IsEquivalent.trans_isBigO h _
   -- reduce to concrete bound
   apply Asymptotics.IsBigO.of_bound <| 1 * ((Real.log c) ^ (c : ℝ))⁻¹
   filter_upwards [hg_tt.eventually_ge_atTop 1, eventually_ge_atTop 1] with n hg1 hn
@@ -265,19 +263,17 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
     apply generateFrom_singleton_le <| measurableSet_le (by measurability) _
     apply Measurable.of_comap_le (by rfl)
   -- convert to sum of reals
-  conv in P _ =>
-    rw [← MeasureTheory.ofReal_measureReal]
+  conv in P _ => rw [← MeasureTheory.ofReal_measureReal]
   simp_rw [← ENNReal.ofNNReal_toNNReal, ENNReal.tsum_coe_eq_top_iff_not_summable_coe,
     Real.coe_toNNReal (r := P.real _) (by positivity)]
   -- rewrite in terms of standard Gaussian
   suffices h : ¬(Summable (fun n ↦ P.real {ω | g (c ^ (max 1 n)) ≤ X 1 ω})) by
     rw [← summable_nat_add_iff 1 (G := ℝ)] at h
-    convert h using 2
-    funext n
-    rw [max_eq_right (by bound)]
-    rw [Measure.real_def, Measure.real_def]
-    rw [ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)]
-    have h' : IdentDistrib
+    convert h using 3 with n
+    -- remove .real and max
+    simp_rw [Measure.real_def]
+    rw [ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness), max_eq_right (by bound)]
+    have h_idd : IdentDistrib
         (fun ω ↦ X (c ^ (n + 1)) ω - X (c ^ n) ω)
         (fun ω ↦ Real.sqrt (c ^ (n + 1) - c ^ n) * X 1 ω) P P := by
       apply (hX.hasLaw_sub _ _).identDistrib
@@ -290,12 +286,12 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
       rw [NNReal.eq_iff]; rify
       rw [Real.sq_sqrt (by bound), NNReal.coe_sub (by bound)]
       push_cast; field_simp
-    convert h'.measure_mem_eq (s := {x | _ ≤ (x : ℝ)}) _
+    -- use identical distribution to show probabilites are equal
+    convert h_idd.measure_mem_eq (s := {x | _ ≤ (x : ℝ)}) _
     · simp_rw [Set.preimage_setOf_eq]
       congr! 2
-      rw [← mul_le_mul_iff_of_pos_left]
-      apply Real.sqrt_pos_of_pos
-      rw [sub_pos, pow_add]
+      rw [← mul_le_mul_iff_of_pos_left _]
+      rw [Real.sqrt_pos, sub_pos, pow_add]
       apply lt_mul_of_one_lt_right (by positivity) (by bound)
     · measurability
   -- apply limit comparison test
@@ -305,8 +301,7 @@ lemma IsBrownian.LIL_lower (h_meas : ∀ t, Measurable (X t)) :
     apply ((IsStandardGaussian.tail <| hX.hasLaw_eval 1).comp_tendsto _).symm
     apply Real.tendsto_sqrt_atTop.comp
     apply Filter.Tendsto.const_mul_atTop (by norm_num)
-    apply Real.tendsto_log_atTop.comp
-    apply Real.tendsto_log_atTop.comp
+    repeat apply Real.tendsto_log_atTop.comp
     apply tendsto_pow_atTop_atTop_of_one_lt hc1 |>.congr'
     exact eventually_ge_atTop 1|>.mono <| fun _ hn ↦ by simp [max_eq_right hn]
   · -- show non-summability of elementary function
