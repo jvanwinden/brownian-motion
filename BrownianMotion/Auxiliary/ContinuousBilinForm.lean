@@ -1,12 +1,14 @@
-import BrownianMotion.Auxiliary.LinearAlgebra
-import Mathlib.LinearAlgebra.Matrix.BilinearForm
-import Mathlib.LinearAlgebra.Matrix.SchurComplement
-import Mathlib.Analysis.InnerProductSpace.Positive
-import Mathlib.LinearAlgebra.SesquilinearForm.Star
+module
+
+public import BrownianMotion.Auxiliary.LinearAlgebra
+public import Mathlib.LinearAlgebra.Matrix.BilinearForm
+public import Mathlib.LinearAlgebra.SesquilinearForm.Star
 
 /-!
 # Continuous bilinear forms
 -/
+
+@[expose] public section
 
 open Module
 open scoped Matrix
@@ -236,6 +238,7 @@ lemma isPosSemidef_iff_bilinForm :
 
 variable {f} [Fintype n] [DecidableEq n]
 
+set_option backward.isDefEq.respectTransparency false in
 lemma _root_.LinearMap.BilinForm.isPosSemidef_iff_posSemidef_toMatrix (f : LinearMap.BilinForm ℝ E)
     (b : Basis n ℝ E) :
     f.IsPosSemidef ↔ (LinearMap.BilinForm.toMatrix b f).PosSemidef := by

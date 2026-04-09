@@ -3,19 +3,23 @@ Copyright (c) 2025 Rémy Degenne. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Rémy Degenne
 -/
-import BrownianMotion.Auxiliary.FiniteInf
-import BrownianMotion.Auxiliary.MeanInequalities
-import BrownianMotion.Continuity.Chaining
-import BrownianMotion.Continuity.HasBoundedInternalCoveringNumber
-import Mathlib.Analysis.SpecialFunctions.Log.Base
-import Mathlib.Order.CompleteLattice.Group
-import Mathlib.Probability.Process.Kolmogorov
-import Mathlib.Topology.EMetricSpace.PairReduction
+module
+
+public import BrownianMotion.Auxiliary.FiniteInf
+public import BrownianMotion.Auxiliary.MeanInequalities
+public import BrownianMotion.Continuity.Chaining
+public import BrownianMotion.Continuity.HasBoundedInternalCoveringNumber
+public import Mathlib.Analysis.SpecialFunctions.Log.Base
+public import Mathlib.Order.CompleteLattice.Group
+public import Mathlib.Probability.Process.Kolmogorov
+public import Mathlib.Topology.EMetricSpace.PairReduction
 
 /-!
 # Stochastic processes satisfying the Kolmogorov condition
 
 -/
+
+@[expose] public section
 
 open MeasureTheory Metric
 open scoped ENNReal NNReal Finset
@@ -530,6 +534,7 @@ noncomputable
 def Cp (d p q : ℝ) : ℝ≥0∞ :=
   max (1 / ((2 ^ ((q - d) / p)) - 1) ^ p) (1 / (2 ^ (q - d) - 1))
 
+set_option backward.isDefEq.respectTransparency false in
 lemma second_term_bound {C : ℕ → Finset T} {k m : ℕ}
     (hX : IsAEKolmogorovProcess X P p q M) {ε₀ : ℝ≥0} (hε : ε₀ ≤ Metric.ediam J)
     (hC : ∀ n, IsCover (ε₀ * 2⁻¹ ^ n) J (C n)) (hC_subset : ∀ n, (C n : Set T) ⊆ J)
@@ -663,6 +668,7 @@ lemma scale_change_lintegral_iSup
   gcongr with ω
   exact scale_change_rpow m (fun s ↦ X s ω) _ _ hX.p_pos.le
 
+set_option backward.isDefEq.respectTransparency false in
 lemma finite_set_bound_of_edist_le_of_diam_le (hJ : HasBoundedCoveringNumber J c d)
     (hJ_finite : J.Finite) (hX : IsAEKolmogorovProcess X P p q M)
     (hd_pos : 0 < d) (hdq_lt : d < q) (hδ_le : Metric.ediam J ≤ δ / 4) :
@@ -752,6 +758,7 @@ lemma finite_set_bound_of_edist_le_of_diam_le (hJ : HasBoundedCoveringNumber J c
     rw [← ENNReal.rpow_add _ _ (by simp) (by simp)]
     ring_nf
 
+set_option backward.isDefEq.respectTransparency false in
 lemma finite_set_bound_of_edist_le_of_le_diam (hJ : HasBoundedCoveringNumber J c d)
     (hJ_finite : J.Finite) (hX : IsAEKolmogorovProcess X P p q M)
     (hd_pos : 0 < d) (hdq_lt : d < q)

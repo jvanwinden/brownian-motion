@@ -1,8 +1,9 @@
-import BrownianMotion.Gaussian.CovMatrix
-import BrownianMotion.Auxiliary.HasLaw
-import Mathlib.Probability.Distributions.Gaussian.Fernique
-import Mathlib.Probability.Distributions.Gaussian.CharFun
-import Mathlib.Probability.Moments.CovarianceBilinDual
+module
+
+public import Mathlib.Probability.Distributions.Gaussian.CharFun
+public import Mathlib.Probability.Distributions.Gaussian.HasGaussianLaw.Basic
+
+@[expose] public section
 
 /-!
 # Facts about Gaussian characteristic function
@@ -28,6 +29,7 @@ lemma HasGaussianLaw.map_eq_gaussianReal {Ω : Type*} {mΩ : MeasurableSpace Ω}
   · fun_prop
   · exact h.isGaussian_map
 
+set_option backward.isDefEq.respectTransparency false in
 lemma HasGaussianLaw.charFun_map_real {Ω : Type*} {mΩ : MeasurableSpace Ω} {P : Measure Ω}
     {X : Ω → ℝ} (h : HasGaussianLaw X P) (t : ℝ) :
     charFun (P.map X) t = cexp (t * P[X] * I - t ^ 2 * Var[X; P] / 2) := by

@@ -3,11 +3,12 @@ Copyright (c) 2025 Rémy Degenne. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Rémy Degenne, Thomas Zhu
 -/
-import Mathlib.Data.Finsupp.Pointwise
-import Mathlib.Probability.Process.Predictable
-import Mathlib.Probability.Process.Stopping
-import BrownianMotion.Auxiliary.StoppedProcess
-import BrownianMotion.Gaussian.BrownianMotion
+module
+
+public import BrownianMotion.Auxiliary.StoppedProcess
+public import Mathlib.MeasureTheory.Constructions.BorelSpace.ContinuousLinearMap
+public import Mathlib.Order.CompletePartialOrder
+public import Mathlib.Probability.Process.Predictable
 
 /-! # Simple processes and elementary stochastic integral
 
@@ -42,6 +43,8 @@ function of an elementary predictable set as a simple process by mapping respect
 
 - Generalize instance variables.
 -/
+
+@[expose] public section
 
 open MeasureTheory Finset Filter ContinuousLinearMap
 open scoped ENNReal Topology
@@ -226,6 +229,9 @@ instance instAdd : Add (SimpleProcess E 𝓕) where
     value := V.value + W.value,
     le_of_mem_support_value := fun p hp ↦ (mem_union.1 (Finsupp.support_add hp)).elim
       (V.le_of_mem_support_value p) (W.le_of_mem_support_value p),
+    measurable_value' p hp := by
+      simp only [Finsupp.coe_add, Pi.add_apply]
+      exact Measurable.add (by fun_prop) (by fun_prop)
     bounded_valueBot := ⟨V.valueBotBound + W.valueBotBound, fun ω ↦ by
       dsimp
       grw [norm_add_le, V.valueBot_le_valueBotBound, W.valueBot_le_valueBotBound]⟩,
@@ -240,6 +246,9 @@ instance instSub : Sub (SimpleProcess E 𝓕) where
     value := V.value - W.value,
     le_of_mem_support_value := fun p hp ↦ (mem_union.1 (Finsupp.support_sub hp)).elim
       (V.le_of_mem_support_value p) (W.le_of_mem_support_value p),
+    measurable_value' p hp := by
+      simp only [Finsupp.coe_sub, Pi.sub_apply]
+      exact Measurable.sub (by fun_prop) (by fun_prop)
     bounded_valueBot := ⟨V.valueBotBound + W.valueBotBound, fun ω ↦ by
       dsimp
       grw [norm_sub_le, V.valueBot_le_valueBotBound, W.valueBot_le_valueBotBound]⟩,

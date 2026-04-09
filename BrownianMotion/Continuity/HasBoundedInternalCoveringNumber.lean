@@ -3,12 +3,16 @@ Copyright (c) 2025 Rémy Degenne. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Rémy Degenne
 -/
-import BrownianMotion.Continuity.CoveringNumber
+module
+
+public import BrownianMotion.Continuity.CoveringNumber
 
 /-!
 # HasBoundedCoveringNumber
 
 -/
+
+@[expose] public section
 
 open MeasureTheory Metric
 open scoped ENNReal NNReal
@@ -52,7 +56,7 @@ lemma HasBoundedCoveringNumber.subset {B : Set T}
     _ ≤ coveringNumber (0 / 2) A := mod_cast coveringNumber_subset_le hBA
     _ = coveringNumber 0 A := by simp
     _ ≤ c := h
-  push_neg at hdA
+  push Not at hdA
   calc (coveringNumber ε B : ℝ≥0∞)
   _ ≤ coveringNumber (ε / 2) A := mod_cast coveringNumber_subset_le hBA
   _ ≤ c * (ε / 2 : ℝ≥0∞)⁻¹ ^ d := by
@@ -77,6 +81,7 @@ structure IsCoverWithBoundedCoveringNumber (C : ℕ → Set T) (A : Set T) (c : 
   mono : ∀ n m, n ≤ m → C n ⊆ C m
   subset_iUnion : A ⊆ ⋃ i, C i
 
+set_option backward.isDefEq.respectTransparency false in
 open scoped Pointwise in
 lemma isCoverWithBoundedCoveringNumber_Ico_nnreal :
     IsCoverWithBoundedCoveringNumber (fun n ↦ Set.Ico (0 : ℝ≥0) (n + 1)) Set.univ

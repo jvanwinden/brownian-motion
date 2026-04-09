@@ -3,7 +3,11 @@ Copyright (c) 2024 Etienne Marion. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Etienne Marion
 -/
-import Mathlib.MeasureTheory.SetAlgebra
+module
+
+public import Mathlib.MeasureTheory.SetAlgebra
+
+@[expose] public section
 
 open MeasurableSpace Set
 
@@ -220,6 +224,7 @@ end Generate
 instance : Inhabited (MonotoneClass α) := ⟨generate univ⟩
 
 /-- If a Monotone class is a set algebra, then it forms a `σ`-algebra. -/
+@[implicit_reducible]
 def toMeasurableSpace (C : MonotoneClass α) (h : IsSetAlgebra C.Has) :
     MeasurableSpace α where
   MeasurableSet' := C.Has

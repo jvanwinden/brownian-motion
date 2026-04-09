@@ -3,8 +3,12 @@ Copyright (c) 2025 Kexing Ying. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Kexing Ying
 -/
-import BrownianMotion.StochasticIntegral.ApproxSeq
-import BrownianMotion.Auxiliary.Adapted
+module
+
+public import BrownianMotion.Auxiliary.Adapted
+public import BrownianMotion.StochasticIntegral.ApproxSeq
+
+@[expose] public section
 
 open Filter TopologicalSpace Function
 open scoped NNReal ENNReal Topology
@@ -188,7 +192,13 @@ theorem Supermartingale.condExp_ae_le_stoppedValue_min_nat [PartialOrder E] [Ord
     (hX : Supermartingale X 𝓕 P) {k : ℕ} (hτk : ∀ᵐ ω ∂P, τ ω ≤ k)
     (hσ : IsStoppingTime 𝓕 σ) (hτ : IsStoppingTime 𝓕 τ) :
     P[stoppedValue X τ|hσ.measurableSpace] ≤ᵐ[P] stoppedValue X (τ ⊓ σ) := by
-  sorry
+  have hXneg : Submartingale (-X) 𝓕 P := hX.neg
+  have h1 := hXneg.stoppedValue_min_ae_le_condExp_nat 𝓕 hτk hσ hτ
+  have hsvn : ∀ τ', stoppedValue (-X) τ' = -stoppedValue X τ' := fun τ' => by
+    ext ω; simp [stoppedValue]
+  rw [hsvn, hsvn] at h1
+  exact (h1.trans (condExp_neg (stoppedValue X τ) hσ.measurableSpace).le).mono
+    fun ω hω => neg_le_neg_iff.mp hω
 
 end Nat
 

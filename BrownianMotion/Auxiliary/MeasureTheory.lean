@@ -1,14 +1,17 @@
-import BrownianMotion.Auxiliary.Algebra
-import BrownianMotion.Auxiliary.Metric
-import BrownianMotion.Auxiliary.WithLp
-import Mathlib.MeasureTheory.Measure.Lebesgue.VolumeOfBalls
-import Mathlib.Probability.Distributions.Gaussian.Real
-import Mathlib.Probability.Independence.ZeroOne
-import Mathlib.Probability.Moments.Covariance
-import Mathlib.Probability.Process.Filtration
+module
+
+public import BrownianMotion.Auxiliary.Algebra
+public import BrownianMotion.Auxiliary.Metric
+public import Mathlib.MeasureTheory.Measure.Lebesgue.VolumeOfBalls
+public import Mathlib.Probability.Distributions.Gaussian.Real
+public import Mathlib.Probability.Independence.Integration
+public import Mathlib.Probability.Independence.ZeroOne
+
 /-!
 # Measure theory lemmas to be upstreamed to Mathlib
 -/
+
+@[expose] public section
 
 open MeasureTheory WithLp
 
@@ -222,24 +225,6 @@ lemma covariance_fun_add_right [IsFiniteMeasure μ]
     (hX : MemLp X 2 μ) (hY : MemLp Y 2 μ) (hZ : MemLp Z 2 μ) :
     cov[X, fun ω ↦ Y ω + Z ω; μ] = cov[X, fun ω ↦ Y ω; μ] + cov[X, fun ω ↦ Z ω; μ] :=
   covariance_add_right hX hY hZ
-
-lemma covariance_fun_sub_left [IsFiniteMeasure μ]
-    (hX : MemLp X 2 μ) (hY : MemLp Y 2 μ) (hZ : MemLp Z 2 μ) :
-    cov[fun ω ↦ X ω - Y ω, Z; μ] = cov[X, Z; μ] - cov[Y, Z; μ] :=
-  covariance_sub_left hX hY hZ
-
-lemma covariance_fun_sub_right [IsFiniteMeasure μ]
-    (hX : MemLp X 2 μ) (hY : MemLp Y 2 μ) (hZ : MemLp Z 2 μ) :
-    cov[X, fun ω ↦ Y ω - Z ω; μ] = cov[X, fun ω ↦ Y ω; μ] - cov[X, fun ω ↦ Z ω; μ] :=
-  covariance_sub_right hX hY hZ
-
-lemma covariance_fun_div_left :
-    cov[fun ω ↦ X ω / c, Y; μ] = cov[X, Y; μ] / c := by
-  simp_rw [← inv_mul_eq_div, covariance_const_mul_left]
-
-lemma covariance_fun_div_right :
-    cov[X, fun ω ↦ Y ω / c; μ] = cov[X, Y; μ] / c := by
-  simp_rw [← inv_mul_eq_div, covariance_const_mul_right]
 
 lemma variance_fun_div (hX : AEMeasurable X μ) :
     Var[fun ω ↦ X ω / c; μ] = Var[X; μ] / c ^ 2 := by

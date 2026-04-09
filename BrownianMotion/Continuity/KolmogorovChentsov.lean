@@ -3,12 +3,18 @@ Copyright (c) 2025 Rémy Degenne. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Rémy Degenne
 -/
-import BrownianMotion.Continuity.KolmogorovChentsovInequality
+module
+
+public import BrownianMotion.Auxiliary.Topology
+public import BrownianMotion.Continuity.KolmogorovChentsovInequality
+public import BrownianMotion.Gaussian.StochasticProcesses
 
 /-!
 # Kolmogorov-Chentsov theorem
 
 -/
+
+@[expose] public section
 
 open MeasureTheory Filter
 open scoped ENNReal NNReal Topology Asymptotics
@@ -173,8 +179,8 @@ theorem measurable_limUnder {ι X E : Type*} [MeasurableSpace X] [TopologicalSpa
     Measurable (fun x ↦ limUnder l (f · x)) := by
   let conv := {x | ∃ c, Tendsto (f · x) l (𝓝 c)}
   have mconv : MeasurableSet conv := measurableSet_exists_tendsto hf
-  have : (fun x ↦ _root_.limUnder l (f · x)) = ((↑) : conv → X).extend
-      (fun x ↦ _root_.limUnder l (f · x)) (fun _ ↦ hE.some) := by
+  have : (fun x ↦ Filter.limUnder l (f · x)) = ((↑) : conv → X).extend
+      (fun x ↦ Filter.limUnder l (f · x)) (fun _ ↦ hE.some) := by
     ext x
     by_cases hx : x ∈ conv
     · rw [Function.extend_val_apply hx]
@@ -393,8 +399,8 @@ lemma holderOnWith_of_mem_holderSet (hT : HasBoundedCoveringNumber U c d)
   have h_edist_lt_top : edist s t < ∞ := by
     calc edist s t ≤ Metric.ediam U := Metric.edist_le_ediam_of_mem hs ht
     _ < ∞ := hT.ediam_lt_top
-  have h_dist_top : edist s t ^ (β : ℝ) ≠ ∞
-  · simp only [ne_eq, ENNReal.rpow_eq_top_iff, NNReal.coe_pos, not_or, not_and, not_lt,
+  have h_dist_top : edist s t ^ (β : ℝ) ≠ ∞ := by
+    simp only [ne_eq, ENNReal.rpow_eq_top_iff, NNReal.coe_pos, not_or, not_and, not_lt,
       NNReal.zero_le_coe, implies_true, nonpos_iff_eq_zero, true_and]
     exact fun h_eq_top ↦ absurd h_eq_top h_edist_lt_top.ne
   by_cases h_dist_zero : edist s t = 0
@@ -875,7 +881,7 @@ lemma IsLimitOfIndicator.indicatorProcess {Y X : T → Ω → E}
     · simp only [indicatorProcess_apply, hω, ↓reduceIte, Dense.extend, IsDenseInducing.extend,
         Set.mem_inter_iff, false_and]
       rw [edist_comm]
-      have : @NeBot (Subtype (denseCountable T)) (comap Subtype.val (𝓝 t)) := by
+      have : @NeBot { x // x ∈ denseCountable T } (comap Subtype.val (𝓝 t)) := by
         apply IsDenseInducing.comap_nhds_neBot (Dense.isDenseInducing_val dense_denseCountable)
       exact edist_limUnder_const
   · by_cases hω : ω ∈ A
@@ -1341,7 +1347,7 @@ lemma exists_modification_holder''' {C : ℕ → Set T} {c : ℕ → ℝ≥0∞}
       by_cases hω : ω ∈ A ∩ ⋂ n, A' n
       swap
       · simp only [hω, ↓reduceIte, Y, Dense.extend, IsDenseInducing.extend]
-        have : @NeBot (Subtype (denseCountable T)) (comap Subtype.val (𝓝 t)) := by
+        have : @NeBot { x // x ∈ denseCountable T } (comap Subtype.val (𝓝 t)) := by
           apply IsDenseInducing.comap_nhds_neBot (Dense.isDenseInducing_val dense_denseCountable)
         rw [edist_comm]
         exact edist_limUnder_const
@@ -1393,7 +1399,8 @@ lemma exists_modification_holder_iSup' {C : ℕ → Set T} {c : ℕ → ℝ≥0�
     obtain ⟨U, hU_mem, hU⟩ := hZ_holder n ω t
     have hβ_pos_half : 0 < β n / 2 := by specialize hβ_pos n; positivity
     specialize hU (β n / 2) hβ_pos_half ?_
-    · simp [β, h_ratio_pos]
+    · simp only [NNReal.coe_div, NNReal.coe_ofNat, β]
+      convert half_lt_self (h_ratio_pos _)
     · obtain ⟨_, h⟩ := hU
       exact (h.continuousOn hβ_pos_half).continuousAt hU_mem
   have hZ_ae_eq' n : ∀ᵐ ω ∂P, ∀ t, edist (Z n t ω) (Z 0 t ω) = 0 := by

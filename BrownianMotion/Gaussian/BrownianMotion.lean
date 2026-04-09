@@ -3,18 +3,27 @@ Copyright (c) 2025 Rémy Degenne. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Rémy Degenne
 -/
-import BrownianMotion.Continuity.KolmogorovChentsov
-import BrownianMotion.Gaussian.GaussianProcess
-import BrownianMotion.Gaussian.Moment
-import BrownianMotion.Gaussian.ProjectiveLimit
-import Mathlib.Probability.Independence.BoundedContinuousFunction
-import Mathlib.Topology.ContinuousMap.SecondCountableSpace
-import Mathlib.Probability.ConditionalExpectation
+module
+
+public import BrownianMotion.Auxiliary.HasLaw
+public import BrownianMotion.Continuity.KolmogorovChentsov
+public import BrownianMotion.Gaussian.CovMatrix
+public import BrownianMotion.Gaussian.GaussianProcess
+public import BrownianMotion.Gaussian.Moment
+public import BrownianMotion.Gaussian.ProjectiveLimit
+public import Mathlib.Probability.ConditionalExpectation
+public import Mathlib.Probability.Distributions.Gaussian.HasGaussianLaw.Independence
+public import Mathlib.Probability.Distributions.Gaussian.IsGaussianProcess.Basic
+public import Mathlib.Probability.Independence.BoundedContinuousFunction
+public import Mathlib.Probability.Independence.Process.HasIndepIncrements.Basic
+public import Mathlib.Topology.ContinuousMap.SecondCountableSpace
 
 /-!
 # Brownian motion
 
 -/
+
+@[expose] public section
 
 open MeasureTheory NNReal WithLp Finset MeasurableSpace Filtration Filter
 open scoped ENNReal NNReal Topology BoundedContinuousFunction
@@ -106,14 +115,6 @@ section Increments
 
 /-! ### Independent increments -/
 
-/-- A process `X : T → Ω → E` has independent increments if for any `n ≥ 1` and `t₁ ≤ ... ≤ tₙ`,
-the random variables `X t₂ - X t₁, ..., X tₙ - X tₙ₋₁` are independent. -/
-def HasIndepIncrements [Preorder T] [Sub E] [MeasurableSpace E] (X : T → Ω → E)
-    (P : Measure Ω := by volume_tac) :
-    Prop :=
-  ∀ n, ∀ t : Fin (n + 1) → T, Monotone t →
-    iIndepFun (fun (i : Fin n) ω ↦ X (t i.succ) ω - X (t i.castSucc) ω) P
-
 /-- `incrementsToRestrict I` is a continuous linear map `f` such that
 `f (xₜ₁, xₜ₂ - xₜ₁, ..., xₜₙ - xₜₙ₋₁) = (xₜ₁, ..., xₜₙ)`. -/
 noncomputable def incrementsToRestrict [LinearOrder T] (R : Type*) [Semiring R] [AddCommMonoid E]
@@ -136,28 +137,6 @@ lemma incrementsToRestrict_increments_ofFin'_ae_eq_restrict [LinearOrder T] (R :
     AddHom.coe_mk, Function.comp_apply]
   rw [Fin.sum_Iic_sub (I.toFin t) (fun j ↦ X (I.ofFin' j) ω)]
   simp [hω]
-
-lemma HasIndepIncrements.indepFun_sub_sub [Preorder T] [MeasurableSpace E] [AddGroup E]
-    {X : T → Ω → E} (h : HasIndepIncrements X P) {r s t : T} (hrs : r ≤ s) (hst : s ≤ t) :
-    IndepFun (X s - X r) (X t - X s) P := by
-  let τ : Fin (2 + 1) → T := ![r, s, t]
-  have hτ : Monotone τ := by
-    intro i j hij
-    fin_cases i <;> fin_cases j
-    any_goals simp only [Nat.reduceAdd, Fin.zero_eta, Fin.isValue, Matrix.cons_val_zero, le_refl, τ]
-    any_goals assumption
-    any_goals contradiction
-    exact hrs.trans hst
-  have h' : (0 : Fin (1 + 1)) ≠ (1 : Fin (1 + 1)) := by simp
-  simpa using (h 2 τ hτ).indepFun h'
-
-lemma HasIndepIncrements.indepFun_eval_sub [Preorder T] [MeasurableSpace E] [AddGroup E]
-    {X : T → Ω → E} (h : HasIndepIncrements X P) {r s t : T} (hrs : r ≤ s) (hst : s ≤ t)
-    (hX : ∀ᵐ ω ∂P, X r ω = 0) :
-    IndepFun (X s) (X t - X s) P := by
-  have := h.indepFun_sub_sub hrs hst
-  refine this.congr ?_ .rfl
-  filter_upwards [hX] with ω hω using by simp [hω]
 
 /-- A stochastic process `X` with independent increments and such that `X t` is gaussian for
 all `t` is a Gaussian process. -/
@@ -342,6 +321,7 @@ lemma IsPreBrownian.continuous_mk [h : IsPreBrownian X P] (ω : Ω) :
     (NNReal.inv_lt_inv (by norm_num) (by norm_num))
   exact (h.continuousOn (by norm_num)).continuousAt hu_mem
 
+set_option backward.isDefEq.respectTransparency false in
 lemma IsPreBrownian.hasIndepIncrements [h : IsPreBrownian X P] : HasIndepIncrements X P := by
   have : IsProbabilityMeasure P := h.isGaussianProcess.isProbabilityMeasure
   refine fun n t ht ↦ h.isGaussianProcess.hasGaussianLaw_increments.iIndepFun_of_covariance_eq_zero
@@ -359,6 +339,7 @@ lemma IsPreBrownian.hasIndepIncrements [h : IsPreBrownian X P] : HasIndepIncreme
   any_goals exact (h.isGaussianProcess.hasGaussianLaw_eval _).memLp_two
   exact h.isGaussianProcess.hasGaussianLaw_sub.memLp_two
 
+set_option backward.isDefEq.respectTransparency false in
 lemma IsGaussianProcess.isPreBrownian_of_covariance (h1 : IsGaussianProcess X P)
     (h2 : ∀ t, P[X t] = 0) (h3 : ∀ s t, s ≤ t → cov[X s, X t; P] = s) :
     IsPreBrownian X P where
@@ -427,6 +408,14 @@ lemma HasIndepIncrements.isPreBrownian_of_hasLaw
     · exact (law t).hasGaussianLaw.memLp_two.sub (law s).hasGaussianLaw.memLp_two
     · exact (law s).hasGaussianLaw.memLp_two
 
+lemma IsPreBrownian.neg [hX : IsPreBrownian X P] : IsPreBrownian (-X) P := by
+  apply HasIndepIncrements.isPreBrownian_of_hasLaw _ _
+  · exact fun t ↦ by simpa using gaussianReal_neg (hX.hasLaw_eval t)
+  intro n s hs
+  convert (hX.hasIndepIncrements n s hs).comp (fun _ x ↦ -x) (by measurability)
+  simp; linarith
+
+set_option backward.isDefEq.respectTransparency false in
 lemma IsPreBrownian.smul [hX : IsPreBrownian X P] {c : ℝ≥0} (hc : c ≠ 0) :
     IsPreBrownian (fun t ω ↦ (X (c * t) ω) / √c) P := by
   refine IsGaussianProcess.isPreBrownian_of_covariance ?_ (fun t ↦ ?_) (fun s t hst ↦ ?_)
@@ -440,6 +429,7 @@ lemma IsPreBrownian.smul [hX : IsPreBrownian X P] {c : ℝ≥0} (hc : c ≠ 0) :
     · simp [field]
     · exact mul_le_mul_right hst c
 
+set_option backward.isDefEq.respectTransparency false in
 /-- **Weak Markov property**: If `X` is a pre-Brownian motion, then
 `X (t₀ + t) - X t₀` is a pre-Brownian motion which is independent from `(B t, t ≤ t₀)`.
 This is the proof that it is pre-Brownian, see `IsPreBrownian.indepFun_shift` for independence. -/
@@ -456,6 +446,7 @@ lemma IsPreBrownian.shift [h : IsPreBrownian X P] (t₀ : ℝ≥0) :
     any_goals exact (h.isGaussianProcess.hasGaussianLaw_eval _).memLp_two
     exact h.isGaussianProcess.hasGaussianLaw_sub.memLp_two
 
+set_option backward.isDefEq.respectTransparency false in
 /-- **Weak Markov property**: If `X` is a pre-Brownian motion, then
 `X (t₀ + t) - X t₀` is a pre-Brownian motion which is independent from `(B t, t ≤ t₀)`.
 This is the proof that of independence, see `IsPreBrownian.shift` for the proof
@@ -484,6 +475,7 @@ lemma IsPreBrownian.indepFun_shift [h : IsPreBrownian X P] (hX : ∀ t, Measurab
     · simp [ht, le_add_right]
     all_goals exact (h.isGaussianProcess.hasGaussianLaw_eval _).memLp_two
 
+set_option backward.isDefEq.respectTransparency false in
 lemma IsPreBrownian.inv [h : IsPreBrownian X P] :
     IsPreBrownian (fun t ω ↦ t * (X (1 / t) ω)) P := by
   refine IsGaussianProcess.isPreBrownian_of_covariance ?_ (fun t ↦ ?_) (fun s t hst ↦ ?_)
@@ -558,6 +550,21 @@ instance IsPreBrownian.isBrownian_mk [h : IsPreBrownian X P] :
     IsBrownian (h.mk X) P where
   toIsPreBrownian := h.congr fun _ ↦ (h.mk_ae_eq _).symm
   cont := ae_of_all _ h.continuous_mk
+
+lemma IsBrownian.mk_ae_forall_eq [h : IsBrownian X P] :
+    ∀ᵐ ω ∂P, ∀ t : ℝ≥0, (h.toIsPreBrownian.mk) t ω = X t ω := by
+  apply indistinguishable_of_modification _ h.cont h.toIsPreBrownian.mk_ae_eq
+  exact .of_forall h.toIsPreBrownian.continuous_mk
+
+lemma IsBrownian.aemeasurable [h : IsBrownian X P] :
+    AEMeasurable (fun ω t ↦ X t ω) P := by
+  refine ⟨Function.swap h.toIsPreBrownian.mk, by measurability, ?_⟩
+  exact h.mk_ae_forall_eq.mono <| fun _ ↦ by aesop
+
+lemma IsBrownian.neg [h : IsBrownian X P] :
+    IsBrownian (-X) P where
+  toIsPreBrownian := h.toIsPreBrownian.neg
+  cont := h.cont.mono (fun _ _ ↦ by simpa [← Pi.neg_def, continuous_neg_iff])
 
 lemma IsBrownian.smul [h : IsBrownian X P] {c : ℝ≥0} (hc : c ≠ 0) :
     IsBrownian (fun t ω ↦ (X (c * t) ω) / √c) P where
@@ -673,7 +680,7 @@ lemma IsBrownian.indep_zero [h : IsBrownian X P] (hX : ∀ t, Measurable (X t))
   -- bounded continuous function `f : (I → ℝ) → ℝ`,
   -- `∫ ω in A, f (fun t ↦ X t) ∂P = P.real A * ∫ ω, f (fun t ↦ X t) ∂P`.
   refine indep_of_indep_of_le_right ?_ (hm3.trans this)
-  refine indep_comap_process_of_bcf hm3' (fun _ ↦ hX _) fun A hA I f ↦ ?_
+  refine indep_comap_process_of_bcf hm3' (fun _ ↦ (hX _).aemeasurable) fun A hA I f ↦ ?_
   -- If `I` is empty, there is nothing to do.
   obtain rfl | hI := I.eq_empty_or_nonempty
   · have : Subsingleton ((∅ : Finset (Set.Ioi (0 : ℝ≥0))) → ℝ) := inferInstance
@@ -877,7 +884,8 @@ lemma ContinuousMap.borel_eq_iSup_comap_eval [SecondCountableTopology X] [Second
   apply le_antisymm
   swap
   · refine iSup_le fun x ↦ ?_
-    simp_rw [← measurable_iff_comap_le, ← BorelSpace.measurable_eq]
+    rw [← BorelSpace.measurable_eq]
+    simp_rw [← measurable_iff_comap_le]
     exact Continuous.measurable (by fun_prop)
   -- Denote by `M(K, U)` the set of functions `f` such that `Set.MapsTo f K U`. These form a
   -- basis for the compact-open topology when `K` is compact and `U` is open.
@@ -1003,8 +1011,12 @@ lemma ContinuousMap.measurable_iff_eval {α : Type*} [MeasurableSpace α]
     [LocallyCompactSpace X] [RegularSpace Y] [MeasurableSpace Y] [BorelSpace Y]
     (g : α → C(X, Y)) :
     Measurable g ↔ ∀ (x : X), Measurable fun (a : α) ↦ g a x := by
-  simp_rw [ContinuousMap.measurableSpace_eq_iSup_comap_eval, measurable_iff_comap_le,
-    MeasurableSpace.comap_iSup, iSup_le_iff, MeasurableSpace.comap_comp, Function.comp_def]
+  suffices Measurable[_, ⨆ a : X, (inferInstance : MeasurableSpace Y).comap fun b ↦ b a] g ↔
+      ∀ (x : X), Measurable fun (a : α) ↦ g a x by
+    convert this
+    exact ContinuousMap.measurableSpace_eq_iSup_comap_eval
+  simp_rw [measurable_iff_comap_le, MeasurableSpace.comap_iSup, iSup_le_iff,
+    MeasurableSpace.comap_comp, Function.comp_def]
 
 end ContinuousMap.MeasurableSpace
 

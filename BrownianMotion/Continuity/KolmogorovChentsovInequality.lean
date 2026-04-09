@@ -3,17 +3,17 @@ Copyright (c) 2025 Rémy Degenne. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Rémy Degenne
 -/
-import BrownianMotion.Auxiliary.Topology
-import BrownianMotion.Continuity.IsKolmogorovProcess
-import BrownianMotion.Gaussian.StochasticProcesses
-import Mathlib.Topology.EMetricSpace.Paracompact
-import Mathlib.Topology.Separation.CompletelyRegular
-import Mathlib.Data.Set.FiniteExhaustion
+module
+
+public import BrownianMotion.Continuity.IsKolmogorovProcess
+public import Mathlib.Data.Set.FiniteExhaustion
 
 /-!
 # Kolmogorov-Chentsov theorem
 
 -/
+
+@[expose] public section
 
 open MeasureTheory Filter
 open scoped ENNReal NNReal Topology Asymptotics
@@ -39,6 +39,7 @@ lemma Set.FiniteExhaustion.subset {α : Type*} {s : Set α} (K : FiniteExhaustio
   simp_rw [← K.iUnion_eq]
   exact Set.subset_iUnion K n
 
+set_option backward.isDefEq.respectTransparency false in
 lemma measure_add_ge_le_add_measure_ge {Ω : Type*} {_ : MeasurableSpace Ω} {P : Measure Ω}
     {f g : Ω → ℝ≥0∞} {x u : ℝ≥0∞} (hu : u ≤ x) :
     P {ω | x ≤ f ω + g ω} ≤ P {ω | u ≤ f ω} + P {ω | x - u ≤ g ω} := by

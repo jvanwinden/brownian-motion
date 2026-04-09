@@ -3,8 +3,9 @@ Copyright (c) 2025 Kexing Ying. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Kexing Ying
 -/
-import Mathlib.Probability.Process.Filtration
-import Mathlib.Probability.Process.Adapted
+module
+
+public import Mathlib.Probability.Process.Filtration
 
 /-!
 # Progressively Measurable σ-algebra
@@ -43,6 +44,8 @@ Then you can endow `ι` with the order topology by writing
 * Given a filtration `𝓕`, its right continuation is denoted `𝓕₊` (type `₊` with `;_+`).
 -/
 
+@[expose] public section
+
 open Filter Order TopologicalSpace
 
 open scoped MeasureTheory NNReal ENNReal Topology
@@ -53,20 +56,20 @@ variable {Ω ι : Type*} {m : MeasurableSpace Ω} {E : Type*} [TopologicalSpace 
 
 /-- A filtration `𝓕` is said to satisfy the usual conditions if it is right continuous and `𝓕 0`
   and consequently `𝓕 t` is complete (i.e. contains all null sets) for all `t`. -/
-class HasUsualConditions [OrderBot ι] (𝓕 : Filtration ι m) (μ : Measure Ω := by volume_tac)
+class HasUsualConditions (𝓕 : Filtration ι m) (μ : Measure Ω := by volume_tac)
     extends IsRightContinuous 𝓕 where
     /-- `𝓕 ⊥` contains all the null sets. -/
-    IsComplete ⦃s : Set Ω⦄ (hs : μ s = 0) : MeasurableSet[𝓕 ⊥] s
+    IsComplete ⦃s : Set Ω⦄ (hs : μ s = 0) (t : ι) : MeasurableSet[𝓕 t] s
 
 variable [OrderBot ι]
 
 instance {𝓕 : Filtration ι m} {μ : Measure Ω} [u : HasUsualConditions 𝓕 μ] {i : ι} :
     @Measure.IsComplete Ω (𝓕 i) (μ.trim <| 𝓕.le _) :=
-  ⟨fun _ hs ↦ 𝓕.mono bot_le _ <| u.2 (measure_eq_zero_of_trim_eq_zero (Filtration.le 𝓕 _) hs)⟩
+  ⟨fun _ hs ↦ u.2 (measure_eq_zero_of_trim_eq_zero (Filtration.le 𝓕 _) hs) i⟩
 
 lemma HasUsualConditions.measurableSet_of_null
     (𝓕 : Filtration ι m) {μ : Measure Ω} [u : HasUsualConditions 𝓕 μ] (s : Set Ω) (hs : μ s = 0) :
     MeasurableSet[𝓕 ⊥] s :=
-  u.2 hs
+  u.2 hs ⊥
 
 end MeasureTheory.Filtration
